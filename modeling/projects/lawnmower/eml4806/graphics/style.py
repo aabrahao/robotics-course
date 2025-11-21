@@ -5,17 +5,17 @@ from typing import Any
 
 #######################################################
 
-def pen(color=(0.0,0.0,0.0), width=1.0, opacity=0.5):
+def pen(color='steelblue', width=1.0, opacity=0.5):
     return Style(stroke=Stroke(color, width), opacity=opacity)
     
-def brush(color=(0.0,0.0,0.0), width=1.0, opacity=0.5):
+def brush(color='steelblue', width=1.0, opacity=0.5):
     return Style(stroke=Stroke(color, width), fill=Fill(color), opacity=opacity)
 
 
 @dataclass
 class Stroke:
 
-    color: Any = (0.0,0.0,0.0)
+    color: Any = 'steelblue'
     width: float = 1.0
 
     def clone(self):
@@ -28,7 +28,7 @@ class Stroke:
 @dataclass
 class Fill:
 
-    color: Any = (0.0,0.0,0.0)
+    color: Any = 'steelblue'
 
     def clone(self):
         return Fill(color=self.color)

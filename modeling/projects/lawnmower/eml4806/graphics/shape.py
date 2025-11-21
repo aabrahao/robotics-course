@@ -260,12 +260,13 @@ class Polyline(Plot):
 
 class Arrow(Shape):
 
-    def __init__(self, workspace, x, y, dx, dy, style = brush(), scaling = 1):
+    def __init__(self, workspace, x, y, dx, dy, style = brush(), scaling = 1, magnification = 10):
         self._x = float(x)
         self._y = float(y)
         self._dx = float(dx)
         self._dy = float(dy)
         self._scaling = float(scaling)
+        self._magnification = float(magnification)
         super().__init__(workspace, style, Transform())
 
     def setPosition(self, x, y):
@@ -279,7 +280,7 @@ class Arrow(Shape):
         self._updateTransform()
 
     def _make(self):
-        self._artist = ArrowPatch(posA=(0.0, 0.0), posB=(0.0, 0.0), arrowstyle='->', mutation_scale=self._scaling)
+        self._artist = ArrowPatch(posA=(0.0, 0.0), posB=(0.0, 0.0), arrowstyle='->', mutation_scale=self._magnification)
         self._ax.add_patch(self._artist)
  
     def _updateShape(self, o):

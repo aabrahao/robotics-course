@@ -33,7 +33,7 @@ def main():
     y0 = 0.0  # m
     theta0 = np.deg2rad(10.0)  # rad
 
-    dock = Circle(workspace, x0, y0, 0.1, style=brush((1.0, 0.0, 1.0)))
+    dock = Circle(workspace, x0, y0, 0.1, style=brush('magenta'))
 
     # Robot physics
     # ClearPath Husky A200 Ground Platform
@@ -91,14 +91,14 @@ def main():
     x2 = 8.0
     y2 = 8.5
     
-    line = Polyline(workspace, style=pen((1.0, 0.0, 0.0), 3))
+    line = Polyline(workspace, style=pen('red', 3))
     line.append((x1, y1))
     line.append((x2, y2))
 
     # Line pursuit point
     xl = 0.0
     yl = 0.0
-    follower = Circle(workspace, xl, yl, 0.05, style=brush((0.0, 0.0, 1.0)))
+    follower = Circle(workspace, xl, yl, 0.05, style=brush('teal'))
 
     # Simulation
     t = 0.0 # s

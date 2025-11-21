@@ -72,20 +72,20 @@ class Robot:
         c = self.chassis
         w = self.wheels
         b = self.blade
-        self.body   = Rectangle(workspace, 0.0, 0.0, c.length, c.width, style=brush((1.0,0.55,0.0), 0.5))
-        self.wheel1 = Rectangle(workspace, -0.5*c.wheelbase, -0.5*c.trackwidth, w.diameter, w.width, style=brush((0.5,0.5,0.5), 0.5))
-        self.wheel2 = Rectangle(workspace,  0.5*c.wheelbase, -0.5*c.trackwidth, w.diameter, w.width, style=brush((0.5,0.5,0.5), 0.5))
-        self.wheel3 = Rectangle(workspace, -0.5*c.wheelbase,  0.5*c.trackwidth, w.diameter, w.width, style=brush((0.5,0.5,0.5), 0.5))
-        self.wheel4 = Rectangle(workspace,  0.5*c.wheelbase,  0.5*c.trackwidth, w.diameter, w.width, style=brush((0.5,0.5,0.5), 0.5))
-        self.tool   = Circle(workspace, 0.0, 0.0, 0.5*b.diameter, brush((1.0,0.0,0.0), 0.5))
+        self.body   = Rectangle(workspace, 0.0, 0.0, c.length, c.width, style=brush('orange', 0.5))
+        self.wheel1 = Rectangle(workspace, -0.5*c.wheelbase, -0.5*c.trackwidth, w.diameter, w.width, style=brush('gray', 0.5))
+        self.wheel2 = Rectangle(workspace,  0.5*c.wheelbase, -0.5*c.trackwidth, w.diameter, w.width, style=brush('gray', 0.5))
+        self.wheel3 = Rectangle(workspace, -0.5*c.wheelbase,  0.5*c.trackwidth, w.diameter, w.width, style=brush('gray', 0.5))
+        self.wheel4 = Rectangle(workspace,  0.5*c.wheelbase,  0.5*c.trackwidth, w.diameter, w.width, style=brush('gray', 0.5))
+        self.tool   = Circle(workspace, 0.0, 0.0, 0.5*b.diameter, brush('red', 0.5))
         # Debug
-        self.arrow_vl = Arrow(workspace, 0.0, 0.5*c.trackwidth, 0.0, 0.0, style=brush((0.0,0.0,1.0), 3.0), scaling=1.25)
-        self.arrow_vr = Arrow(workspace, 0.0,-0.5*c.trackwidth, 0.0, 0.0, style=brush((0.0,0.0,1.0), 3.0), scaling=1.25)
+        self.arrow_vl = Arrow(workspace, 0.0, 0.5*c.trackwidth, 0.0, 0.0, style=brush('blue', 3.0), scaling=1.25)
+        self.arrow_vr = Arrow(workspace, 0.0,-0.5*c.trackwidth, 0.0, 0.0, style=brush('blue', 3.0), scaling=1.25)
         # Assembly
         self.body = Group([self.body, self.wheel1, self.wheel2, self.wheel3, self.wheel4, self.tool, self.arrow_vl, self.arrow_vr])
         # Path
         x, y = self.odometer.position()
-        self.path = Polyline(workspace, (x, y), style=pen((1.0,0.0,1.0)))
+        self.path = Polyline(workspace, (x, y), style=pen('magenta'))
         # Update graphics
         self._update()
 
