@@ -6,7 +6,7 @@ from matplotlib.patches import FancyArrowPatch as ArrowPatch
 
 from eml4806.geometry.vector import vector, ensure, append
 from eml4806.graphics.workspace import Workspace
-from eml4806.graphics.style import Color, Stroke, Fill, Style
+from eml4806.graphics.style import Stroke, Fill, Style, pen, brush
 from eml4806.geometry.transform import Transform
 
 ###############################################################
@@ -137,7 +137,7 @@ class Plot(Shape):
     def _updateStyle(self):
         s = self._style
         if s.stroke is not None:
-            self._artist.set_color(s.stroke.color.color)
+            self._artist.set_color(s.stroke.color)
             self._artist.set_linewidth(s.stroke.width)
         self._artist.set_alpha(s.opacity)
 
@@ -160,9 +160,9 @@ class Fill(Shape):
     def _updateStyle(self):
         s = self._style
         if s.fill is not None:
-            self._artist.set_facecolor(s.fill.color.color)
+            self._artist.set_facecolor(s.fill.color)
         if s.stroke is not None:
-            self._artist.set_edgecolor(s.stroke.color.color)
+            self._artist.set_edgecolor(s.stroke.color)
             self._artist.set_linewidth(s.stroke.width)
         self._artist.set_alpha(s.opacity)
 
@@ -173,7 +173,7 @@ class Fill(Shape):
 class Rectangle(Fill):
 
     def __init__(
-        self, workspace, x, y, width, height, angle=0.0, style=Style.defaultBrush()
+        self, workspace, x, y, width, height, angle=0.0, style=brush()
     ):
         self.w = width
         self.h = height
@@ -197,7 +197,7 @@ class Rectangle(Fill):
 
 class Circle(Fill):
 
-    def __init__(self, workspace, x, y, radious, style=Style.defaultBrush()):
+    def __init__(self, workspace, x, y, radious, style=brush()):
         self.r = radious
         super().__init__(workspace, style, Transform(position=(x, y)))
 
@@ -212,7 +212,7 @@ class Circle(Fill):
 
 class Polygon(Fill):
 
-    def __init__(self, workspace, edges, style=Style.defaultBrush()):
+    def __init__(self, workspace, edges, style=brush()):
         self._points = ensure(edges)
         super().__init__(workspace, style)
 
@@ -232,7 +232,7 @@ class Polygon(Fill):
 
 class Polyline(Plot):
 
-    def __init__(self, workspace, edges=[], style=Style.defaultPen()):
+    def __init__(self, workspace, edges=[], style=pen()):
         self._points = ensure(edges)
         super().__init__(workspace, style, Transform())
 
@@ -260,7 +260,7 @@ class Polyline(Plot):
 
 class Arrow(Shape):
 
-    def __init__(self, workspace, x, y, dx, dy, style = Style.defaultBrush(), scaling = 1):
+    def __init__(self, workspace, x, y, dx, dy, style = brush(), scaling = 1):
         self._x = float(x)
         self._y = float(y)
         self._dx = float(dx)
@@ -288,9 +288,9 @@ class Arrow(Shape):
     def _updateStyle(self):
         s = self._style
         if s.fill is not None:
-            self._artist.set_facecolor(s.fill.color.color)
+            self._artist.set_facecolor(s.fill.color)
         if s.stroke is not None:
-            self._artist.set_edgecolor(s.stroke.color.color)
+            self._artist.set_edgecolor(s.stroke.color)
             self._artist.set_linewidth(s.stroke.width)
         self._artist.set_alpha(s.opacity)
 

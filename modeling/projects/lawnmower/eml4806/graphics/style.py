@@ -1,25 +1,21 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import List, Optional
+from typing import Any
 
 #######################################################
 
-class Color:
-
-    def __init__(self, r: float = 0.0, g: float = 0.0, b: float = 1.0):
-        self.color = (r, g, b)
+def pen(color=(0.0,0.0,0.0), width=1.0, opacity=0.5):
+    return Style(stroke=Stroke(color, width), opacity=opacity)
     
-    def clone(self):
-        return Color(r=self.r, g=self.g, b=self.b)
-
-
-#######################################################
+def brush(color=(0.0,0.0,0.0), width=1.0, opacity=0.5):
+    return Style(stroke=Stroke(color, width), fill=Fill(color), opacity=opacity)
 
 
 @dataclass
 class Stroke:
 
-    color: Color 
+    color: Any = (0.0,0.0,0.0)
     width: float = 1.0
 
     def clone(self):
@@ -32,7 +28,7 @@ class Stroke:
 @dataclass
 class Fill:
 
-    color: Color
+    color: Any = (0.0,0.0,0.0)
 
     def clone(self):
         return Fill(color=self.color)
@@ -60,20 +56,4 @@ class Style:
             fill=self.fill.clone() if self.fill is not None else None,
             opacity=self.opacity,
         )
-
-    @classmethod
-    def pen(cls, color, opacity = 1.0, width = 1.0):
-        return cls(stroke=Stroke(color, width), opacity=opacity)
-    
-    @classmethod
-    def brush(cls, color, opacity = 1.0, width = 1.0):
-        return cls(stroke=Stroke(color, width), fill=Fill(color), opacity=opacity)
-
-    @classmethod
-    def defaultPen(cls):
-        return cls.pen(Color(0.0, 0.0, 0.0), opacity=0.75)
-        
-    @classmethod
-    def defaultBrush(cls):
-        return cls.brush(Color(0.0,0.0,0.0), opacity=0.75)
-    
+  
