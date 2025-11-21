@@ -158,7 +158,6 @@ def main():
 
         # Update scene
         workspace.update()
-
     
     print("Bye!")
 
