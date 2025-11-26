@@ -51,8 +51,8 @@ class Robot:
         return self.odometer.orientation()
 
     # Control wheel shaft rotation (rad/s)
-    def move(self, vl, vr, dt):
-        self.odometer.integrate(vl, vr, dt, tol=0.001)
+    def move(self, v, w, dt):
+        self.odometer.integrate(v, w, dt, tol=0.001)
         self._update()
 
     def debug(self):
@@ -109,6 +109,6 @@ class Robot:
             self.path.append( position )
 
     def _updateDebug(self):
-        vl, vr = self.odometer.velocities()
+        vl, vr = self.odometer.wheelVelocities()
         self.arrow_vl.setDirection( (vl, 0.0) )
         self.arrow_vr.setDirection( (vr, 0.0) )

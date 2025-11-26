@@ -111,9 +111,10 @@ def main():
     dt = 0.02 # s (~50 Hz)
 
     # Robot control variables
-    vl = 0.0  # Left track linear velocity (m/s)
-    vr = 0.0  # Left track linear velocity (m/s)
-    vmax = motors.maximum_angular_velocity*(0.5* wheels.diameter)
+    v = 0.0  # Left track linear velocity (m/s)
+    w = 0.0  # Left track linear velocity (m/s)
+    vmax = motors.maximum_angular_velocity*(0.5*wheels.diameter)
+    wmax = 2*vmax/chassis.trackwidth
    
     # PID
     error_integral = 0.0        
@@ -138,8 +139,8 @@ def main():
             track_ray.set(line_start, line_end)
             track_start_point.move(line_start)
             track_end_point.move(line_end)
-            vl = 0.0
-            vr = 0.0
+            v = 0.0
+            w = 0.0
 
         # Operation mode
         if not autonomous:
@@ -150,27 +151,25 @@ def main():
      
             # Joytick controls
             if key == "up":
-                vl += dv
-                vr += dv
+                v += dv
+                w = 0.0
             elif key == "down":
-                vl -= dv
-                vr -= dv
+                v -= dv
+                w = 0.0
             elif key == "left":
-                vl -= dw
-                vr += dw
+                w += dw
             elif key == "right":
-                vl += dw
-                vr -= dw
+                w -= dw
             elif key == " ":
-                vl = 0.0
-                vr = 0.0
+                v = 0.0
+                w = 0.0
             elif key == "d":
                 robot.setDebug( not robot.debug() )
         
         else: # Autonmous drive in line pursuit mode
             
             # Chassis geometry
-            l = chassis.wheelbase
+            l = chassis.trackwidth
 
             # PID controller: cross track + heading control
             kp = 2.0
@@ -214,26 +213,21 @@ def main():
             else:
                 v = 0.8*vmax
 
-            # Wheel velocities            
-            vl = v - 0.5*l*w
-            vr = v + 0.5*l*w
-
             # Display controller results
-            print(f'e: {error} ei: {error_integral} ed: {error_derivative} -> vl: {vl} vr: {vr}')
+            print(f'e: {error} ei: {error_integral} ed: {error_derivative} -> v: {vl} w: {vr}')
 
             # Updated Graphics
             if robot.debug():
                 position_point.move(position)
                 goal_point.move(goal)
                 distance_line.set(position, goal)
-        
 
         # Motors physical limits
-        vl = np.clip(vl, -vmax, vmax)
-        vr = np.clip(vr, -vmax, vmax)
+        v = np.clip(v, -vmax, vmax)
+        w = np.clip(w, -wmax, wmax)
 
         # Actuator
-        robot.move(vl, vr, dt)  # Actuator
+        robot.move(v, w, dt)  # Actuator
         
         # Advance
         t += dt

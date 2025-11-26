@@ -16,8 +16,8 @@ class SkidDriveOdometer(ABC):
         self._x = float(pose[0])
         self._y = float(pose[1])
         self._theta = float(pose[2])
-        self._vl = 0.0
-        self._vr = 0.0
+        self._v = 0.0
+        self._w = 0.0
 
     def position(self):
         return vector(self._x, self._y)
@@ -28,18 +28,17 @@ class SkidDriveOdometer(ABC):
     def pose(self):
         return array([self._x, self._y, self._theta], dtype=float)
     
-    def velocities(self):
-        return self._vr, self._vl
+    def wheelVelocities(self):
+        vl = self._v - (0.5*self.track_width)*self._w
+        vr = self._v + (0.5*self.track_width)*self._w
+        return vr, vl
 
-    def integrate(self, vl, vr, dt, tol=1e-3):
+    def integrate(self, v, w, dt, tol=1e-3):
         vmax = self.maximum_linear_velocity
         wmax = self.maximum_angular_velocity
         # Remember
-        self._vl = vl
-        self._vr = vr
-        # Forward and angular velocities
-        v = 0.5 * (vr + vl)  # forward
-        w = (vr - vl) / self.track_width  # yaw rate
+        self._v = v
+        self._w = w
         # Imposed safety limits
         if vmax is not None:
             v = clip(v, -vmax, vmax)
