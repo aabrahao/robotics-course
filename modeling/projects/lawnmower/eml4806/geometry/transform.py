@@ -1,13 +1,15 @@
 import numpy as np
 
+from eml4806.geometry.vector import vector, ensure
+
 #########################################################
 
 class Transform:
 
     def __init__(self, position=(0.0, 0.0), orientation=0.0, scaling=(1.0, 1.0)):
-        self.position = np.asarray(position, dtype=float).reshape(2)
-        self.orientation = float(orientation)
-        self.scaling = np.asarray(scaling, dtype=float).reshape(2)
+        self._position = ensure(position)
+        self._orientation = float(orientation)
+        self._scaling = ensure(scaling)
 
     @property
     def matrix(self):
@@ -18,26 +20,26 @@ class Transform:
         return np.linalg.inv(self.matrix)
 
     def clone(self):
-        return Transform(self.position.copy(), self.orientation, self.scaling.copy())
+        return Transform(self._position.copy(), self._orientation, self._scaling.copy())
 
-    def translate(self, dx, dy):
-        self.position += np.array([dx, dy], dtype=float)
+    def translate(self, d):
+        e = ensure(d)
+        self._position += e
 
     def rotate(self, da):
-        self.orientation += float(da)
+        self._orientation += float(da)
 
-    def scale(self, sx, sy=None):
-        if sy is None:
-            sy = sx
-        self.scaling *= np.array([sx, sy], dtype=float)
+    def scale(self, s):
+        if np.isscalar(s): s = (s, s)
+        self._scaling *= s
 
     def apply(self, points, inverse=False):
-        pts = np.asarray(points, dtype=float)
+        pts = ensure(points)
         p = pts.reshape(-1, 2)  # (N, 2)
         # Extract transform components
-        tx, ty = self.position
-        rot = self.orientation
-        sx, sy = self.scaling
+        tx, ty = self._position
+        rot = self._orientation
+        sx, sy = self._scaling
         if not inverse:
             # Scale
             x = p[:, 0] * sx
@@ -85,10 +87,9 @@ class Transform:
         return cls((0.0, 0.0), angle, (1.0, 1.0))
 
     @classmethod
-    def scale(cls, sx, sy=None):
-        if sy is None:
-            sy = sx
-        return cls((0.0, 0.0), 0.0, (sx, sy))
+    def scale(cls, s):
+        if np.isscalar(s): s = (s, s)
+        return cls((0.0, 0.0), 0.0, s)
 
     @classmethod
     def from_matrix(cls, M):
@@ -108,10 +109,10 @@ class Transform:
 
     @classmethod
     def to_matrix(cls, tf):
-        tx, ty = tf.position
-        c = np.cos(tf.orientation)
-        s = np.sin(tf.orientation)
-        sx, sy = tf.scaling
+        tx, ty = tf._position
+        c = np.cos(tf._orientation)
+        s = np.sin(tf._orientation)
+        sx, sy = tf._scaling
         return np.array(
             [[c * sx, -s * sy,  tx],
              [s * sx,  c * sy,  ty], 

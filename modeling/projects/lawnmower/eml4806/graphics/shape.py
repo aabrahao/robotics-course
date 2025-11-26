@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyArrowPatch as ArrowPatch
 
-from eml4806.geometry.vector import vector, ensure, append
+from eml4806.geometry.vector import scalar, vector, ensure, unit, append
 from eml4806.graphics.workspace import Workspace
 from eml4806.graphics.style import Stroke, Fill, Style, pen, brush
 from eml4806.geometry.transform import Transform
@@ -25,27 +25,20 @@ class Drawable(ABC):
         self._transform = value.clone()
         self._updateTransform()
 
-    def move(self, x, y, relative=False):
-        if relative:
-            self._transform.position += (x, y)
-        else:
-            self._transform.position = (x, y)
+    def move(self, position, relative=False):
+        if relative: self._transform._position += position
+        else: self._transform._position = position
         self._updateTransform()
 
     def rotate(self, angle, relative=False):
-        if relative:
-            self._transform.orientation += float(angle)
-        else:
-            self._transform.orientation = float(angle)
+        if relative: self._transform._orientation += angle
+        else: self._transform._orientation = float(angle)
         self._updateTransform()
 
-    def scale(self, sx, sy=None, relative=False):
-        if sy is None:
-            sy = sx
-        if relative:
-            self._transform.scale += (sx, sy)
-        else:
-            self._transform.scale = (sx, sy)
+    def scale(self, scaling, relative=False):
+        if scalar(scaling): scaling = (scaling, scaling)
+        if relative: self._transform._scaling += scaling
+        else: self._transform._scale = scaling
         self._updateTransform()
 
     def setParent(self, parent):
@@ -99,11 +92,14 @@ class Shape(Drawable):
         self._updateStyle()
 
     def _updateTransform(self):
+        o = self._shape()
+        if o is None:
+            return
         if self._parent is None:
             T = self._transform
         else:
             T = Transform.compound(self._parent._transform, self._transform)
-        o = T.apply(self._shape())
+        o = T.apply(o)
         self._updateShape(o)
 
     @abstractmethod
@@ -173,11 +169,11 @@ class Fill(Shape):
 class Rectangle(Fill):
 
     def __init__(
-        self, workspace, x, y, width, height, angle=0.0, style=brush()
+        self, workspace, position, width, height, angle=0.0, style=brush()
     ):
         self.w = width
         self.h = height
-        super().__init__(workspace, style, Transform(position=(x, y), orientation=angle))
+        super().__init__(workspace, style, Transform(position=position, orientation=angle))
 
     def _shape(self):
         w = 0.5 * self.w
@@ -197,9 +193,9 @@ class Rectangle(Fill):
 
 class Circle(Fill):
 
-    def __init__(self, workspace, x, y, radious, style=brush()):
+    def __init__(self, workspace, position, radious, style=brush()):
         self.r = radious
-        super().__init__(workspace, style, Transform(position=(x, y)))
+        super().__init__(workspace, style, Transform(position=position))
 
     def _shape(self):
         a = np.linspace(0.0, 2 * np.pi, 72, endpoint=False)
@@ -210,20 +206,34 @@ class Circle(Fill):
 
 ###############################################################
 
+
+class Point(Circle):
+
+    def __init__(self, workspace, position, style=brush()):
+        super().__init__(workspace, position, 0.05, style)
+
+    def _shape(self):
+        a = np.linspace(0.0, 2 * np.pi, 72, endpoint=False)
+        x = self.r * np.cos(a)
+        y = self.r * np.sin(a)
+        return vector(x, y)
+
+###############################################################
+
 class Polygon(Fill):
 
-    def __init__(self, workspace, edges, style=brush()):
-        self._points = ensure(edges)
+    def __init__(self, workspace, edges=None, style=brush()):
+        self._points = edges
         super().__init__(workspace, style)
 
     def points(self):
         return self._points.copy()
     
     def setPoints(self, points):
-        self._parent = ensure(points)
+        self._points = ensure(points)
     
     def append(self, edges):
-        self._points = np.vstack([self._points, edges.ensure()])
+        self._points = append(self._points, edges)
 
     def _shape(self):
         return self._points
@@ -232,7 +242,7 @@ class Polygon(Fill):
 
 class Polyline(Plot):
 
-    def __init__(self, workspace, edges=[], style=pen()):
+    def __init__(self, workspace, edges=None, style=pen()):
         self._points = ensure(edges)
         super().__init__(workspace, style, Transform())
 
@@ -255,28 +265,68 @@ class Polyline(Plot):
 
     def _shape(self):
         return self._points
+    
+###############################################################
+
+class Line(Polyline):
+
+    def __init__(self, workspace, start, end, style=pen()):
+        super().__init__(workspace, [start, end], style)
+
+    def set(self, start, end):
+        self.setPoints([start, end])
+
+    def setStart(self, point):
+        self.setPoints([point, self._points[1]])
+    
+    def setEnd(self, point):
+        self.setPoints([self._points[0], point])
+
+class Ray(Line):
+
+    def __init__(self, workspace, start, end, style=pen()):
+        super().__init__(workspace, start, end, style)
+        self._makeInfity()
+
+    def set(self, start, end):
+        super().set(start, end)
+        self._makeInfity()
+
+    def setStart(self, point):
+        super().setStart(point)
+        self._makeInfity()
+    
+    def setEnd(self, point):
+        super().setEnd(point)
+        self._makeInfity()
+
+    def _makeInfity(self, big = 1e8):
+        p1 = self._points[0]
+        p2 = self._points[1]
+        u = unit(p2 - p1)
+        p2 = p1 + u*big
+        p1 = p1 - u*big
+        super().set(p1, p2)
+
+
 
 ###############################################################
 
 class Arrow(Shape):
 
-    def __init__(self, workspace, x, y, dx, dy, style = brush(), scaling = 1, magnification = 10):
-        self._x = float(x)
-        self._y = float(y)
-        self._dx = float(dx)
-        self._dy = float(dy)
+    def __init__(self, workspace, position, direction, style = brush(), scaling = 1, magnification = 10):
+        self._position = ensure(position)
+        self._direction = ensure(direction)
         self._scaling = float(scaling)
         self._magnification = float(magnification)
         super().__init__(workspace, style, Transform())
 
-    def setPosition(self, x, y):
-        self._x = x
-        self._y = y
+    def setPosition(self, position):
+        self._position = ensure(position)
         self._updateTransform()
 
-    def setSize(self, dx, dy):
-        self._dx = dx
-        self._dy = dy
+    def setDirection(self, direction):
+        self._direction = ensure(direction)
         self._updateTransform()
 
     def _make(self):
@@ -297,7 +347,6 @@ class Arrow(Shape):
 
     def _shape(self):
         return np.array([
-                [self._x, self._y],
-                [self._x + self._scaling*self._dx, self._y + self._scaling*self._dy]
-            ]
-        )
+                self._position,
+                self._position + self._scaling*self._direction
+        ])

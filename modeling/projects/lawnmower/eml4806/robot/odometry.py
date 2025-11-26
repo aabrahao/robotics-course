@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from numpy import pi, sin, cos, clip
-from eml4806.geometry.angle import normalize
+from numpy import pi, sin, cos, clip, array
+
+from eml4806.geometry.vector import vector
 
 ##############################################################################################
 
@@ -11,26 +12,28 @@ class SkidDriveOdometer(ABC):
     maximum_linear_velocity : float = None # Impose safety speed limites in the internal controller
     maximum_angular_velocity: float = None # Impose safety rotation limites in the internal controller
     
-    def initilize(self, x, y, theta):
-        self._x = x
-        self._y = y
-        self._theta = theta
+    def initilize(self, pose):
+        self._x = float(pose[0])
+        self._y = float(pose[1])
+        self._theta = float(pose[2])
         self._vl = 0.0
         self._vr = 0.0
 
     def position(self):
-        return self._x, self._y
+        return vector(self._x, self._y)
     
     def orientation(self):
         return self._theta
     
     def pose(self):
-        return self._x, self._y, self._theta
+        return array([self._x, self._y, self._theta], dtype=float)
     
     def velocities(self):
         return self._vr, self._vl
 
     def integrate(self, vl, vr, dt, tol=1e-3):
+        vmax = self.maximum_linear_velocity
+        wmax = self.maximum_angular_velocity
         # Remember
         self._vl = vl
         self._vr = vr
@@ -38,8 +41,10 @@ class SkidDriveOdometer(ABC):
         v = 0.5 * (vr + vl)  # forward
         w = (vr - vl) / self.track_width  # yaw rate
         # Imposed safety limits
-        v = clip(v, -self.maximum_linear_velocity, self.maximum_linear_velocity)
-        w = clip(w, -self.maximum_angular_velocity, self.maximum_angular_velocity)
+        if vmax is not None:
+            v = clip(v, -vmax, vmax)
+        if wmax is not None:
+            w = clip(w, -wmax, wmax)
         # Update pose
         self._integrate(v, w, dt, tol)
 

@@ -29,7 +29,7 @@ class Blade:
     height: float = 0.0 # m
 
 class Robot:
-    def __init__(self, workspace, x, y, theta, chassis, wheels, motors, blade, odometer):
+    def __init__(self, workspace, position, theta, chassis, wheels, motors, blade, odometer):
         # Body
         self.chassis = chassis
         self.wheels = wheels
@@ -37,7 +37,8 @@ class Robot:
         self.blade = blade
         # Odometry
         self.odometer = odometer
-        self.odometer.initilize(x, y, theta)
+        x, y = position
+        self.odometer.initilize((x, y, theta))
         # Graphics
         self._makeBody(workspace)
          # Debug
@@ -45,6 +46,9 @@ class Robot:
 
     def gps(self):
         return self.odometer.position()
+
+    def imu(self):
+        return self.odometer.orientation()
 
     # Control wheel shaft rotation (rad/s)
     def move(self, vl, vr, dt):
@@ -72,20 +76,19 @@ class Robot:
         c = self.chassis
         w = self.wheels
         b = self.blade
-        self.body   = Rectangle(workspace, 0.0, 0.0, c.length, c.width, style=brush('orange', 0.5))
-        self.wheel1 = Rectangle(workspace, -0.5*c.wheelbase, -0.5*c.trackwidth, w.diameter, w.width, style=brush('gray', 0.5))
-        self.wheel2 = Rectangle(workspace,  0.5*c.wheelbase, -0.5*c.trackwidth, w.diameter, w.width, style=brush('gray', 0.5))
-        self.wheel3 = Rectangle(workspace, -0.5*c.wheelbase,  0.5*c.trackwidth, w.diameter, w.width, style=brush('gray', 0.5))
-        self.wheel4 = Rectangle(workspace,  0.5*c.wheelbase,  0.5*c.trackwidth, w.diameter, w.width, style=brush('gray', 0.5))
-        self.tool   = Circle(workspace, 0.0, 0.0, 0.5*b.diameter, brush('red', 0.5))
+        self.body   = Rectangle(workspace, (0.0, 0.0), c.length, c.width, style=brush('orange', 0.5))
+        self.wheel1 = Rectangle(workspace, (-0.5*c.wheelbase, -0.5*c.trackwidth), w.diameter, w.width, style=brush('gray', 0.5))
+        self.wheel2 = Rectangle(workspace, ( 0.5*c.wheelbase, -0.5*c.trackwidth), w.diameter, w.width, style=brush('gray', 0.5))
+        self.wheel3 = Rectangle(workspace, (-0.5*c.wheelbase,  0.5*c.trackwidth), w.diameter, w.width, style=brush('gray', 0.5))
+        self.wheel4 = Rectangle(workspace, ( 0.5*c.wheelbase,  0.5*c.trackwidth), w.diameter, w.width, style=brush('gray', 0.5))
+        self.tool   = Circle(workspace, (0.0, 0.0), 0.5*b.diameter, brush('red', 0.5))
         # Debug
-        self.arrow_vl = Arrow(workspace, 0.0, 0.5*c.trackwidth, 0.0, 0.0, style=brush('blue', 3.0), scaling=1.25)
-        self.arrow_vr = Arrow(workspace, 0.0,-0.5*c.trackwidth, 0.0, 0.0, style=brush('blue', 3.0), scaling=1.25)
+        self.arrow_vl = Arrow(workspace, (0.0,-0.5*c.trackwidth), (0.0, 0.0), style=brush('blue', 3.0), scaling=1.25)
+        self.arrow_vr = Arrow(workspace, (0.0, 0.5*c.trackwidth), (0.0, 0.0), style=brush('blue', 3.0), scaling=1.25)
         # Assembly
         self.body = Group([self.body, self.wheel1, self.wheel2, self.wheel3, self.wheel4, self.tool, self.arrow_vl, self.arrow_vr])
         # Path
-        x, y = self.odometer.position()
-        self.path = Polyline(workspace, (x, y), style=pen('magenta'))
+        self.path = Polyline(workspace, [self.odometer.position()], style=pen('magenta'))
         # Update graphics
         self._update()
 
@@ -100,13 +103,12 @@ class Robot:
         self.body.setTransform(tf)
     
     def _updatePath(self):
-        x, y = self.odometer.position()
-        position = vector(x, y)
+        position = self.odometer.position()
         last = self.path.last()
-        if not coincident(position, last):
+        if not coincident(position, last, tol=0.2):
             self.path.append( position )
 
     def _updateDebug(self):
         vl, vr = self.odometer.velocities()
-        self.arrow_vl.setSize(vl, 0.0)
-        self.arrow_vr.setSize(vr, 0.0)
+        self.arrow_vl.setDirection( (vl, 0.0) )
+        self.arrow_vr.setDirection( (vr, 0.0) )
