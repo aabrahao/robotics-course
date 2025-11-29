@@ -1,0 +1,173 @@
+import matplotlib.pyplot as plt
+import matplotlib.image as img
+import numpy as np
+
+def toGray8(image):
+    """Convert an RGB or grayscale image array to 8-bit monochrome."""
+    if image.ndim == 3:  # RGB
+        gray = ( 0.299 * image[..., 0] +
+                 0.587 * image[..., 1] +
+                 0.114 * image[..., 2] )
+        return gray.astype(np.uint8)
+    else:  # Already grayscale
+        return image.astype(np.uint8)
+    
+def toUint8(x):
+    return np.clip(x, 0, 255).astype(np.uint8)
+
+def toGray(image):
+    """
+    Convert an RGB or grayscale NumPy image to float grayscale.
+    Output range: 0.0 to 1.0
+    """
+    # Convert integer inputs to float
+    img = image.astype(np.float32)
+    # Case 1: RGB or RGBA
+    if img.ndim == 3 and img.shape[2] >= 3:
+        r = img[..., 0]
+        g = img[..., 1]
+        b = img[..., 2]
+        gray = 0.299 * r + 0.587 * g + 0.114 * b
+    # Case 2: Already grayscale
+    else:
+        gray = img
+    # Normalize:
+    # If original was uint8 (0–255), map to 0.0–1.0 float
+    if gray.max() > 1.0:
+        gray = gray / 255.0
+    return gray
+    
+def fitImage(image, x, y, w, h):
+    """
+    Fit an image inside a rectangle (x, y, w, h) 
+    while preserving aspect ratio.
+    Returns:
+        wb, hb  (adjusted width and height)
+    """
+    ih = image.shape[0]
+    iw = image.shape[1]
+    # Aspect ratio (width / height)
+    image_aspect = iw / ih
+    box_aspect = w / h
+    # Compare image and box aspect
+    if image_aspect > box_aspect: # Image wider relative to the box → limit width
+        wb = w
+        hb = w / image_aspect
+    else: # Image taller → limit height
+        hb = h
+        wb = h * image_aspect
+
+    return x, y, wb, hb
+
+import numpy as np
+
+def size(image):
+    H = image.shape[0]
+    W = image.shape[1]
+    return W, H
+
+def toPixel(x, y, image, xi, yi, wi, hi):
+    """
+    Map world coordinates (x, y) to pixel indices (u, v)
+    """
+    W, H = size(image)
+    u = (x - xi) / wi*(W - 1)
+    v = (y - yi) / hi*(H - 1)
+    return u, v
+
+def fromPixel(u, v, image, xi, yi, wi, hi):
+    """
+    Map pixel indices (u, v) back to world coordinates (w, w).
+    """
+    W, H = size(image)
+    x = xi + u / (W - 1)*wi
+    y = yi + v / (H - 1)*hi
+    return x, y
+
+def distanceToPixel(dx, dy, image, xi, yi, wi, hi):
+    """
+    Convert a world distance (dx, dy) to pixel distance (du, dv).
+    """
+    W, H = size(image)
+    sx = (W - 1) / wi
+    sy = (H - 1) / hi
+    du = dx * sx
+    dv = dy * sy
+    return du, dv
+
+def distanceFromPixel(du, dv, image, xi, yi, wi, hi):
+    W, H = size(image)
+    wx_scale = wi / (W - 1)
+    wy_scale = hi / (H - 1)
+    dx = du * wx_scale
+    dy = dv * wy_scale
+    return dx, dy
+
+def maskCircle(u, v, r, image, func):
+    """
+    Return a new image I where all pixels inside the circle centered at (u, v)
+    with radius r are multiplied by m. The original 'image' is NOT modified.
+    """
+    I = image.copy()
+    rows, cols = I.shape
+    y, x = np.ogrid[:rows, :cols]
+    mask = (y - u)**2 + (x - v)**2 <= r**2
+    I[mask] = func( I[mask] )
+    return I
+
+def mask(x, y, r, value, image, xi, yi, wi, hi, func=lambda I: 0.5*I):
+    u, v = toPixel(x, y, image, xi, yi, wi, hi)
+    ru, rv = distanceToPixel(r, r, image, xi, yi, wi, hi)
+    I = maskCircle(v, u, ru, image, func)
+    return I
+
+def plot(ax, image, xi, yi, wi, hi):
+    ax.imshow(image, cmap='gray', origin='upper', extent=[xi, xi+wi, yi+hi, yi] )
+
+def point(ax, v, marker, color):
+    ax.plot(v[0], v[1], marker, color=color)
+
+def ipoint(ax, u, v, image, xi, yi, wi, hi, marker, color):
+    p = fromPixel(u, v, image, xi, yi, wi, hi)
+    point(ax, p, marker, color)
+
+def main():
+
+    image = img.imread("eml4806/data/baboon.bmp")
+    map = toGray8(image)
+    map = np.flipud(map)
+    
+    xi, yi, wi, hi = fitImage(map, 2.0, 1.0, 6.0, 6.0)
+    W, H = size(map)
+
+    print(map.shape)
+    print(W, H)
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+
+    value = 0.2*255
+    map = mask(       xi,        yi, 0.1*wi, value, map, xi, yi, wi, hi)
+    map = mask(xi+0.5*wi, yi+0.5*hi, 0.1*wi, value, map, xi, yi, wi, hi)
+    map = mask(xi+0.5*wi,        yi, 0.1*wi, value, map, xi, yi, wi, hi)
+    map = mask    (xi+wi,     yi+hi, 0.1*wi, value, map, xi, yi, wi, hi)
+
+    print(map.dtype)
+
+    plot(ax, map, xi, yi, wi, hi)
+
+    ipoint(ax,     0,     0, map, xi, yi, wi, hi, 'o', 'green')
+    ipoint(ax, 0.5*W,     0, map, xi, yi, wi, hi, 'o', 'blue')
+    ipoint(ax,     W,     0, map, xi, yi, wi, hi, 'o', 'cyan')
+    ipoint(ax, 0.5*W, 0.5*H, map, xi, yi, wi, hi, 'o', 'yellow')
+    ipoint(ax,     0,     H, map, xi, yi, wi, hi, 'o', 'magenta')
+    ipoint(ax,     0, 0.5*H, map, xi, yi, wi, hi, 'o', 'red')
+    ipoint(ax,     W,     H, map, xi, yi, wi, hi, 'o', 'orange')
+    
+    ax.set_xlim(0, 10)
+    ax.set_ylim(0, 8)
+    ax.set_aspect('equal')
+    ax.grid(True)
+    plt.show()
+
+if __name__ == "__main__":
+    main()

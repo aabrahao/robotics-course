@@ -11,6 +11,8 @@ from eml4806.graphics.workspace import Workspace
 from eml4806.graphics.style import pen, brush
 from eml4806.graphics.renderer import PlotRenderer, FillRenderer, ArrowRenderer
 
+from numpy import sin, cos, pi
+
 ###############################################################
 
 
@@ -26,6 +28,10 @@ class AbstractDrawable(ABC):
 
     def setTransform(self, value):
         self._transform = value.clone()
+        self._updateGeometry()
+
+    def reset(self):
+        self._transform = Transform()
         self._updateGeometry()
 
     def move(self, position, relative=False):
@@ -46,7 +52,7 @@ class AbstractDrawable(ABC):
         if np.isscalar(scaling):
             scaling = (scaling, scaling)
         if relative:
-            self._transform._scaling += scaling
+            self._transform._scaling *= scaling
         else:
             self._transform._scaling = scaling
         self._updateGeometry()
@@ -169,22 +175,11 @@ class Circle(AbstractShape):
         self._updateGeometry()
 
     def _geometry(self):
-        a = np.linspace(0.0, 2 * np.pi, 72, endpoint=False)
-        x = self._radious * np.cos(a)
-        y = self._radious * np.sin(a)
+        r = self._radious
+        a = np.linspace(0.0, 2*pi, 72, endpoint=False)
+        x = r*cos(a)
+        y = r*sin(a)
         return vector.new(x, y)
-
-###############################################################
-
-class Point(Circle):
-
-    def __init__(self, workspace, position, style=brush()):
-        super().__init__(workspace, position, 0.05, style)
-
-    def set(self, p, r=None):
-        if r is None: 
-            r = self._radious
-        super().set(p, r)
 
 ###############################################################
 
@@ -235,8 +230,8 @@ class Polyline(Polygon):
 
 class Line(Polyline):
 
-    def __init__(self, workspace, start, end, style=pen(), marker=None):
-        super().__init__(workspace, [start, end], style, marker)
+    def __init__(self, workspace, start, end, style=pen()):
+        super().__init__(workspace, [start, end], style)
 
     def set(self, start, end):
         super().set([start, end])
@@ -247,6 +242,17 @@ class Line(Polyline):
     def setEnd(self, point):
         self.set([self._points[0], point])
 
+###############################################################
+
+class Point(Polyline):
+
+    def __init__(self, workspace, position, style=brush()):
+        super().__init__(workspace, [position], style=style, marker='o')
+    
+    def set(self, p):
+        self.setPoints([p])
+
+###############################################################
 
 class Ray(Line):
 

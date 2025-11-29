@@ -40,34 +40,32 @@ class Transform:
         tx, ty = self._position
         rot = self._orientation
         sx, sy = self._scaling
+        c = np.cos(rot)
+        s = np.sin(rot)
         if not inverse:
             # Scale
             x = p[:, 0]*sx
             y = p[:, 1]*sy
             # Rotate
-            c = np.cos(rot)
-            s = np.sin(rot)
-            out_x = c * x - s * y
-            out_y = s * x + c * y
+            xo = c * x - s * y
+            yo = s * x + c * y
             # Translate
-            out_x += tx
-            out_y += ty
+            xo += tx
+            yo += ty
         else:
             # Un-translate
             x = p[:, 0] - tx
             y = p[:, 1] - ty
             # Un-rotate
-            c = np.cos(rot)
-            s = np.sin(rot)
-            out_x = c * x + s * y
-            out_y = -s * x + c * y
+            xo = c * x + s * y
+            yo = -s * x + c * y
             # Un-scale
-            out_x /= sx
-            out_y /= sy
-        out = vector.new(out_x, out_y)
-        if len(out) == 1:
-            return out[0]
-        return out
+            xo /= sx
+            yo /= sy
+        o = vector.new(xo, yo)
+        if len(o) == 1:
+            return o[0]
+        return o
 
     @classmethod
     def compound(cls, M1, M2):
