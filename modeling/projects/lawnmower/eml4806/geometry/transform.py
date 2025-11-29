@@ -1,15 +1,15 @@
 import numpy as np
 
-from eml4806.geometry.vector import vector, ensure
+import eml4806.geometry.vector as vector
 
 #########################################################
 
 class Transform:
 
     def __init__(self, position=(0.0, 0.0), orientation=0.0, scaling=(1.0, 1.0)):
-        self._position = ensure(position)
+        self._position = vector.ensureOne(position)
         self._orientation = float(orientation)
-        self._scaling = ensure(scaling)
+        self._scaling = vector.ensureOne(scaling)
 
     @property
     def matrix(self):
@@ -23,27 +23,27 @@ class Transform:
         return Transform(self._position.copy(), self._orientation, self._scaling.copy())
 
     def translate(self, d):
-        e = ensure(d)
+        e = vector.ensureOne(d)
         self._position += e
 
     def rotate(self, da):
         self._orientation += float(da)
 
     def scale(self, s):
-        if np.isscalar(s): s = (s, s)
+        if np.isscalar(s): 
+            s = (s, s)
         self._scaling *= s
 
     def apply(self, points, inverse=False):
-        pts = ensure(points)
-        p = pts.reshape(-1, 2)  # (N, 2)
+        p = vector.ensureMany(points)
         # Extract transform components
         tx, ty = self._position
         rot = self._orientation
         sx, sy = self._scaling
         if not inverse:
             # Scale
-            x = p[:, 0] * sx
-            y = p[:, 1] * sy
+            x = p[:, 0]*sx
+            y = p[:, 1]*sy
             # Rotate
             c = np.cos(rot)
             s = np.sin(rot)
@@ -64,10 +64,10 @@ class Transform:
             # Un-scale
             out_x /= sx
             out_y /= sy
-        out = np.column_stack((out_x, out_y))
-        if pts.ndim == 1:
+        out = vector.new(out_x, out_y)
+        if len(out) == 1:
             return out[0]
-        return out.reshape(pts.shape)
+        return out
 
     @classmethod
     def compound(cls, M1, M2):
@@ -88,7 +88,8 @@ class Transform:
 
     @classmethod
     def scale(cls, s):
-        if np.isscalar(s): s = (s, s)
+        if np.isscalar(s): 
+            s = (s, s)
         return cls((0.0, 0.0), 0.0, s)
 
     @classmethod

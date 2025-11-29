@@ -1,7 +1,8 @@
 from dataclasses import dataclass
 import numpy as np
 
-from eml4806.geometry.vector import vector, coincident
+import eml4806.geometry.vector as vector
+
 from eml4806.geometry.transform import Transform
 from eml4806.graphics.style import Style, Stroke, Fill, pen, brush
 from eml4806.graphics.shape import Rectangle, Circle, Polyline, Group, Arrow
@@ -22,13 +23,8 @@ class Wheel:
 class Motor:
     maximum_angular_velocity: float = 0.0  # rad/s
 
-@dataclass
-class Blade:
-    diameter : float = 0.0 # m
-    on: bool = False
-    height: float = 0.0 # m
-
 class Robot:
+
     def __init__(self, workspace, position, theta, chassis, wheels, motors, blade, odometer):
         # Body
         self.chassis = chassis
@@ -41,7 +37,9 @@ class Robot:
         self.odometer.initilize((x, y, theta))
         # Graphics
         self._makeBody(workspace)
-         # Debug
+        # Blade control
+        self.blade_position = 0 # 0 (off), 1 (high), 2 (low)
+        # Debug
         self._debug = True
 
     def gps(self):
@@ -54,6 +52,9 @@ class Robot:
     def move(self, v, w, dt):
         self.odometer.integrate(v, w, dt, tol=0.001)
         self._update()
+
+    def reset(self):
+        self.path.set([])
 
     def debug(self):
         return self._debug
@@ -70,7 +71,10 @@ class Robot:
             self.arrow_vl.hide()
             self.arrow_vr.hide()
         self._debug = visible
-    
+
+    def setBlade(self, state):
+        self.blade.state = state
+        
     def _makeBody(self, workspace):
         # Parts
         c = self.chassis
@@ -105,7 +109,7 @@ class Robot:
     def _updatePath(self):
         position = self.odometer.position()
         last = self.path.last()
-        if not coincident(position, last, tol=0.2):
+        if not vector.coincident(position, last, tol=0.2):
             self.path.append( position )
 
     def _updateDebug(self):

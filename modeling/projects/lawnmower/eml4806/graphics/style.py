@@ -11,7 +11,6 @@ def pen(color='steelblue', width=1.0, opacity=0.5):
 def brush(color='steelblue', width=1.0, opacity=0.5):
     return Style(stroke=Stroke(color, width), fill=Fill(color), opacity=opacity)
 
-
 @dataclass
 class Stroke:
 
@@ -44,10 +43,10 @@ class Style:
         self.fill = fill
         self.opacity = float(opacity)
 
-    def has_fill(self):
+    def hasFill(self):
         return self.fill is not None and self.opacity > 0.0
 
-    def has_stroke(self):
+    def hasStroke(self):
         return (self.stroke is not None and self.opacity > 0.0 and self.stroke.width > 0.0)
 
     def clone(self):

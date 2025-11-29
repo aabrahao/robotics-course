@@ -1,6 +1,6 @@
 import math
 
-from eml4806.geometry.vector import vector
+import eml4806.geometry.vector as vector
 
 # Point: p
 # Line: (p1, p2)
@@ -48,4 +48,4 @@ def closest(p1, p2, p):
     # NOTE: no clamping of t → this is an INFINITE line
     xc = x1 + t * dx
     yc = y1 + t * dy
-    return vector(xc, yc)
+    return vector.new(xc, yc)
