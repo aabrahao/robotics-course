@@ -35,7 +35,11 @@ def info():
 
 def main():
 
-    info()
+    menu = '''Keyboard commands
+    [a] Autonomous
+    [r] Randomize
+    [d] Debug on/off
+    [q] Quit'''
 
     # Land
     xmin = -2.0
@@ -43,7 +47,7 @@ def main():
     ymin = -1.0
     ymax = 10.0
 
-    world = worksapce.Workspace(xmin, xmax, ymin, ymax)
+    world = worksapce.Workspace(xmin, xmax, ymin, ymax, menu)
 
     # Robot docking station
     docking = pose.new(0.0, 0.0, angle.radians(10.0))

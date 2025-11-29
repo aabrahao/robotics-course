@@ -5,16 +5,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from enum import Enum
-
 from numpy import sin, cos, pi
 from numpy.random import uniform as random
 
 import eml4806.sensor.keyboard as keyboard
 import eml4806.geometry.angle as angle
-import eml4806.geometry.line as line
 import eml4806.geometry.vector as vector
-import eml4806.geometry.transform as transform
 import eml4806.geometry.pose as pose
 
 import eml4806.graphics.workspace as worksapce
@@ -29,16 +25,12 @@ import eml4806.task.task as task
 import eml4806.task.executor as executer
 import eml4806.task.context as context
 
-def info():
-    print("=== Menu ===")
-    print("r : randomize")
-    print("d : debug (on/off)")
-    print("q : quit")
-    print()
-
 def main():
 
-    info()
+    menu = '''Keyboard commands
+    [r] Randomize
+    [d] Debug on/off
+    [q] Quit'''
 
     ############################################################################################################
     # World
@@ -48,7 +40,7 @@ def main():
     ymin = -1.0
     ymax = 10.0
 
-    world = worksapce.Workspace(xmin, xmax, ymin, ymax)
+    world = worksapce.Workspace(xmin, xmax, ymin, ymax, menu)
     
     ############################################################################################################
     # Robot docking station
@@ -122,7 +114,7 @@ def main():
     ])
 
     # Graphics
-    waypoints_ployline = shape.Polyline(world, waypoints, style=style.pen('black', 2), marker='o')
+    waypoints_ployline = shape.Polyline(world, waypoints, style=style.pen('gray', 2), marker='o')
 
     # Mission Planner 1
     def planMission1(points):
@@ -220,7 +212,7 @@ def main():
         world.update()
         t += dt
     
-    print("Bye!")
+    print('Bye!')
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

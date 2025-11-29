@@ -36,7 +36,7 @@ def key():
         _fig.canvas.mpl_disconnect(fig.canvas.manager.key_press_handler_id)
         _fig.canvas.mpl_connect('key_press_event', _on_key)
         _fig.canvas.mpl_connect("close_event", _on_close)
-        _fig.suptitle('Press [q] to close figure...')
+
     else:
         key = _key
         _key = None

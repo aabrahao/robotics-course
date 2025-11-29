@@ -30,25 +30,25 @@ class AbstractDrawable(ABC):
 
     def move(self, position, relative=False):
         if relative:
-            self._transform.position += position
+            self._transform._position += position
         else:
-            self._transform.position = position
+            self._transform._position = position
         self._updateGeometry()
 
     def rotate(self, angle, relative=False):
         if relative:
-            self._transform.orientation += angle
+            self._transform._orientation += angle
         else:
-            self._transform.orientation = float(angle)
+            self._transform._orientation = float(angle)
         self._updateGeometry()
 
     def scale(self, scaling, relative=False):
         if np.isscalar(scaling):
             scaling = (scaling, scaling)
         if relative:
-            self._transform.scaling += scaling
+            self._transform._scaling += scaling
         else:
-            self._transform.scale = scaling
+            self._transform._scaling = scaling
         self._updateGeometry()
 
     def setParent(self, parent):
@@ -152,7 +152,7 @@ class Rectangle(AbstractShape):
 class Circle(AbstractShape):
 
     def __init__(self, workspace, position, radious, style=brush()):
-        self.radious = radious
+        self._radious = radious
         super().__init__(
             workspace, 
             style, 
@@ -161,17 +161,17 @@ class Circle(AbstractShape):
         )
 
     def set(self, p, r):
-        self.radious = r
+        self._radious = r
         self.move(p)
 
     def setRadious(self, r):
-        self.radious = r
+        self._radious = r
         self._updateGeometry()
 
     def _geometry(self):
         a = np.linspace(0.0, 2 * np.pi, 72, endpoint=False)
-        x = self.radious * np.cos(a)
-        y = self.radious * np.sin(a)
+        x = self._radious * np.cos(a)
+        y = self._radious * np.sin(a)
         return vector.new(x, y)
 
 ###############################################################
@@ -182,7 +182,8 @@ class Point(Circle):
         super().__init__(workspace, position, 0.05, style)
 
     def set(self, p, r=None):
-        if r is None: r = self.radious
+        if r is None: 
+            r = self._radious
         super().set(p, r)
 
 ###############################################################
@@ -241,10 +242,10 @@ class Line(Polyline):
         super().set([start, end])
 
     def setStart(self, point):
-        self.set([point, self.points[1]])
+        self.set([point, self._points[1]])
 
     def setEnd(self, point):
-        self.set([self.points[0], point])
+        self.set([self._points[0], point])
 
 
 class Ray(Line):
@@ -266,8 +267,8 @@ class Ray(Line):
         self.makeInfity()
 
     def makeInfity(self, big=1e8):
-        p1 = self.points[0]
-        p2 = self.points[1]
+        p1 = self._points[0]
+        p2 = self._points[1]
         u = vector.unit(p2 - p1)
         p2 = p1 + u * big
         p1 = p1 - u * big
