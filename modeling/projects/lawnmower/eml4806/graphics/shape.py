@@ -4,6 +4,7 @@ import numpy as np
 
 from eml4806.geometry.transform import Transform
 from eml4806.geometry.vector import Vector, toVector, toVectors, angle, length, polar, unit
+from eml4806.geometry.angle import wrap
 
 from eml4806.graphics.style import pen, brush
 from eml4806.graphics.renderer import PlotRenderer, FillRenderer, ArrowRenderer
@@ -149,6 +150,7 @@ class RectangleShape(AbstractShape):
 
     def __init__(self, workspace, center, size, angle=0.0, style=brush()):
         self._size = toVector(size)
+        angle = wrap(angle)
         super().__init__(
             workspace,
             style,
@@ -156,15 +158,15 @@ class RectangleShape(AbstractShape):
             renderer=FillRenderer()
         )
 
-    def set(self, c, s):
-        self.setCenter(c)
-        self.setSize(s)
+    def set(self, center, size):
+        self.setCenter(center)
+        self.setSize(size)
 
-    def setCenter(self, c):
-        self.translate(c, relative=False)
+    def setCenter(self, center):
+        self.translate(center, relative=False)
 
-    def setSize(self, s):
-        self._size = toVector(s)
+    def setSize(self, size):
+        self._size = toVector(size)
         self._updateGeometry()
 
     def _geometry(self):
@@ -191,15 +193,15 @@ class CircleShape(AbstractShape):
             renderer=FillRenderer()
         )
 
-    def set(self, c, r):
-        self.setCenter(c)
-        self.setRadious(r)
+    def set(self, center, radious):
+        self.setCenter(center)
+        self.setRadious(radious)
 
-    def setCenter(self, c):
-        self.translate(c)
+    def setCenter(self, center):
+        self.translate(center)
 
-    def setRadious(self, r):
-        self._radious = float(r)
+    def setRadious(self, radious):
+        self._radious = float(radious)
         self._updateGeometry()
 
     def _geometry(self):
@@ -224,8 +226,8 @@ class PolygonShape(AbstractShape):
         """Return a copy of the internal points list."""
         return [Vector(p) for p in self._points]
 
-    def setPoints(self, points):
-        self._points = toVectors(points)
+    def setPoints(self, edges):
+        self._points = toVectors(edges)
         self._updateGeometry()
 
     def clear(self):
@@ -262,11 +264,11 @@ class LineShape(PolylineShape):
     def set(self, start, end):
         super().set([start, end])
 
-    def setStart(self, point):
-        self.set([point, self._points[1]])
+    def setStart(self, start):
+        self.set([start, self._points[1]])
 
-    def setEnd(self, point):
-        self.set([self._points[0], point])
+    def setEnd(self, start):
+        self.set([self._points[0], start])
 
 # ---------------------------------------------------------------------------
 # PointShape (as a single-vertex PolylineShape)
@@ -277,8 +279,8 @@ class PointShape(PolylineShape):
     def __init__(self, workspace, center, style=brush()):
         super().__init__(workspace, [center], style=style, marker='o')
 
-    def set(self, c):
-        self.setPoints([c])
+    def set(self, center):
+        self.setPoints([center])
 
 # ---------------------------------------------------------------------------
 # RayShape (infinite-ish line)
@@ -294,8 +296,8 @@ class RayShape(LineShape):
         super().set(start, end)
         self.makeInfity()
 
-    def setStart(self, point):
-        super().setStart(point)
+    def setStart(self, start):
+        super().setStart(start)
         self.makeInfity()
 
     def setEnd(self, point):
@@ -329,16 +331,16 @@ class ArrowShape(AbstractShape):
             renderer=ArrowRenderer(),
         )
 
-    def set(self, o, d):
-        self.setOrigin(o)
-        self.setDirection(d)
+    def set(self, origin, direction):
+        self.setOrigin(origin)
+        self.setDirection(direction)
 
-    def setOrigin(self, o):
-        self._origin = toVector(o)
+    def setOrigin(self, origin):
+        self._origin = toVector(origin)
         self._updateGeometry()
 
-    def setDirection(self, d):
-        self._direction = toVector(d)
+    def setDirection(self, direction):
+        self._direction = toVector(direction)
         self._updateGeometry()
 
     def _geometry(self):

@@ -1,3 +1,21 @@
+'''
+Lawn mower robot modeling, control and simulation
+https://youtu.be/2Rhsv8fFqCE
+
+
+Florida International University
+EML 4806 Modeling & EML 5808 Robot Control
+Instructor: Anthony Abrahao
+Fall 2025
+Miami, FL 
+
+Units are expressed in SI: 
+
+    - Distance in meters (m)
+    - Angles in radians (rad)
+    - Time in seconds (s).
+
+'''
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -33,9 +51,9 @@ def main():
 
     world = Workspace(xmin, ymin, xmin + (xmax-xmin), ymin + (ymax-ymin), menu)
 
-    # Robot dock station
-    dock = Vector(0.0, 0.0)
-    docking_heading = radians(10.0)
+    # Robot dock pose
+    dock_position = Vector(0.0, 0.0)
+    dock_heading = radians(10.0)
 
     # Robot physics
     # ClearPath Husky A200 Ground Platform
@@ -63,22 +81,21 @@ def main():
     odometer.maximum_angular_velocity = None # 3.5  # rad/s
 
     # Simulated robot
-    robot = Robot(world, dock, docking_heading, chassis, wheels, motors, blade, odometer)
+    robot = Robot(world, dock_position, dock_heading, chassis, wheels, motors, blade, odometer)
 
     # Settings    
     robot.setDebug(True)
     autonomous = True
 
-    # Go pose
-    goal = Vector(6.0, 4.0)
+    # Goal pose
+    goal_position = Vector(6.0, 4.0)
     goal_heading = radians(135.0)
 
     # Graphics
-    
-    docking_point = world.point(dock, 'magenta')
-    robot_point = world.point(dock, 'teal')
-    goal_point = world.point(goal, 'red')
-    goal_arrow = world.arrow(goal, 0.8*polar(1.0,goal_heading), 'red', width=4)
+    dock_point  = world.point(center=dock_position, color='magenta')
+    robot_point = world.point(center=dock_position, color='teal')
+    goal_point  = world.point(center=goal_position, color='red')
+    goal_arrow  = world.arrow(origin=goal_position, direction=0.8*polar(1.0,goal_heading), color='red', width=4)
     
     # Robot control variables
     v = 0.0  # Linear speed (m/s)
@@ -105,10 +122,10 @@ def main():
         elif key == 'd':
             robot.setDebug( not robot.debug() )
         elif key == 'r':
-            goal = Vector(random(1.1*xmin, 0.9*xmax), random(1.1*ymin, 0.9*ymax))
+            goal_position = Vector(random(1.1*xmin, 0.9*xmax), random(1.1*ymin, 0.9*ymax))
             goal_heading = random(0.0, 2*pi)
-            goal_point.set(goal)
-            goal_arrow.set(goal, 0.8*polar(1.0,goal_heading))
+            goal_point.set(center=goal_position)
+            goal_arrow.set(origin=goal_position, direction=0.8*polar(1.0,goal_heading))
             v = 0.0
             w = 0.0
 
@@ -157,25 +174,30 @@ def main():
             k_alpha =  2.0  # k2 > 0
             k_beta  = -1.5  # k3 < 0
 
-            # World frame
+            # Robot pose
             position = robot.gps()
             heading = robot.imu()
-            target = goal - position
-            target_distance = length(target)
+
+            # Target pose
+            target_postion = goal_position - position
+            target_distance = length(target_postion)
 
             # Heading selection
             if target_distance > heading_switch_radious: 
-                target_heading = angle(target) # Point towards goal
+                target_heading = angle(target_postion) # Point towards goal_position
             else: 
                 target_heading = goal_heading # Enforce final pose heading
                         
-            # Robot frame: error = rotation(heading).T @ target
-            dx, dy = target
+            # Robot frame
+            dx, dy = target_postion
+
+            # Error in robot frame = Rotation (heading).T @ target_postion
             ex =  cos(heading)*dx + sin(heading)*dy
             ey = -sin(heading)*dx + cos(heading)*dy
+            
             eh = wrap(target_heading - heading)
             
-            # Check goal tolerance
+            # Check goal_position tolerance
             if target_distance < posistion_tolerance and abs(eh) < heading_tolerance:
                 v = 0.0
                 w = 0.0

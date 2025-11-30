@@ -3,6 +3,7 @@ import numpy as np
 
 from eml4806.geometry.transform import Transform
 from eml4806.geometry.vector import Vector, coincident
+from eml4806.robot.tool import BladeState
 
 @dataclass
 class Chassis:
@@ -30,12 +31,11 @@ class Robot:
         self.blade = blade
         # Odometry
         self.odometer = odometer
-        x, y = position
-        self.odometer.initilize((x, y, theta))
+        self.odometer.initilize(position, theta)
         # Graphics
         self._makeBody(world)
         # Blade control
-        self.blade_position = 0 # 0 (off), 1 (high), 2 (low)
+        self.blade_position = BladeState.OFF # BladeState.LOW and BladeState.HIGH
         # Debug
         self._debug = True
 
@@ -51,7 +51,7 @@ class Robot:
         self._update()
 
     def reset(self):
-        self.path.set([])
+        self._path.set([self.odometer.position()])
 
     def debug(self):
         return self._debug
@@ -60,13 +60,13 @@ class Robot:
         if self._debug == visible:
             return
         if visible == True:
-            self.path.show()
-            self.arrow_vl.show()
-            self.arrow_vr.show()
+            self._path.show()
+            self._arrow_vl.show()
+            self._arrow_vr.show()
         else:
-            self.path.hide()
-            self.arrow_vl.hide()
-            self.arrow_vr.hide()
+            self._path.hide()
+            self._arrow_vl.hide()
+            self._arrow_vr.hide()
         self._debug = visible
 
     def setBlade(self, state):
@@ -74,25 +74,30 @@ class Robot:
         
     def _makeBody(self, world):
         # Parts
-        c = self.chassis
-        w = self.wheels
-        b = self.blade
-        self.body   = world.rectangle((0.0, 0.0), (c.length, c.width), 'orange')
-        self.wheel1 = world.rectangle((-0.5*c.wheelbase, -0.5*c.trackwidth), (w.diameter, w.width), 'gray')
-        self.wheel2 = world.rectangle(( 0.5*c.wheelbase, -0.5*c.trackwidth), (w.diameter, w.width), 'gray')
-        self.wheel3 = world.rectangle((-0.5*c.wheelbase,  0.5*c.trackwidth), (w.diameter, w.width), 'gray')
-        self.wheel4 = world.rectangle(( 0.5*c.wheelbase,  0.5*c.trackwidth), (w.diameter, w.width), 'gray')
-        self.tool   = world.circle((0.0, 0.0), 0.5*b.diameter, 'red')
+        cl = self.chassis.length
+        cw = self.chassis.width
+        wb = self.chassis.wheelbase
+        tw = self.chassis.trackwidth
+        wd = self.wheels.diameter
+        ww = self.wheels.width
+        bd = self.blade.diameter
+        # Graphics
+        self.body   = world.rectangle((0.0, 0.0), (cl, cw), 'orange')
+        self.wheel1 = world.rectangle((-0.5*wb, -0.5*tw), (wd, ww), 'gray')
+        self.wheel2 = world.rectangle(( 0.5*wb, -0.5*tw), (wd, ww), 'gray')
+        self.wheel3 = world.rectangle((-0.5*wb,  0.5*tw), (wd, ww), 'gray')
+        self.wheel4 = world.rectangle(( 0.5*wb,  0.5*tw), (wd, ww), 'gray')
+        self.tool   = world.circle((0.0, 0.0), 0.5*bd, 'red')
         # Debug
-        self.arrow_vl = world.arrow((0.0,-0.5*c.trackwidth), (0.0, 0.0), 'blue', width=3.0, scaling=1.25)
-        self.arrow_vr = world.arrow((0.0, 0.5*c.trackwidth), (0.0, 0.0), 'blue', width=3.0, scaling=1.25)
+        self._arrow_vl = world.arrow((0.0,-0.5*tw), (0.0, 0.0), 'blue', width=3.0, scaling=1.25)
+        self._arrow_vr = world.arrow((0.0, 0.5*tw), (0.0, 0.0), 'blue', width=3.0, scaling=1.25)
         # Assembly
         self.body = world.group([self.body, 
                                  self.wheel1, self.wheel2, self.wheel3, self.wheel4, 
                                  self.tool, 
-                                 self.arrow_vl, self.arrow_vr])
+                                 self._arrow_vl, self._arrow_vr])
         # Path
-        self.path = world.polyline([self.odometer.position()], 'magenta')
+        self._path = world.polyline([self.odometer.position()], 'magenta')
         # Update graphics
         self._update()
 
@@ -108,11 +113,14 @@ class Robot:
     
     def _updatePath(self):
         position = self.odometer.position()
-        last = self.path.last()
-        if not coincident(position, last, tol=0.1):
-            self.path.append( position )
-
+        last = self._path.last()
+        if last is None: # Empty
+            self._path.append(position)
+            return
+        if not coincident(position, last, tol=0.1): # Moved!
+            self._path.append(position)
+    
     def _updateDebug(self):
         vl, vr = self.odometer.wheelVelocities()
-        self.arrow_vl.setDirection( (vl, 0.0) )
-        self.arrow_vr.setDirection( (vr, 0.0) )
+        self._arrow_vl.setDirection( (vl, 0.0) )
+        self._arrow_vr.setDirection( (vr, 0.0) )

@@ -1,3 +1,21 @@
+'''
+Lawn mower robot modeling, control and simulation
+https://youtu.be/2Rhsv8fFqCE
+
+
+Florida International University
+EML 4806 Modeling & EML 5808 Robot Control
+Instructor: Anthony Abrahao
+Fall 2025
+Miami, FL 
+
+Units are expressed in SI: 
+
+    - Distance in meters (m)
+    - Angles in radians (rad)
+    - Time in seconds (s).
+
+'''
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -34,8 +52,8 @@ def main():
 
     world = Workspace(xmin, ymin, xmin + (xmax-xmin), ymin + (ymax-ymin), menu)
 
-    # Robot dock station
-    dock = Vector(0.0, 0.0)
+    # Robot dock_postion station
+    dock_postion = Vector(0.0, 0.0)
     dock_heading = radians(10.0)
 
     # Robot physics
@@ -64,24 +82,24 @@ def main():
     odometer.maximum_angular_velocity = None # 3.5  # rad/s
 
     # Simulated robot
-    robot = Robot(world, dock, dock_heading, chassis, wheels, motors, blade, odometer)
+    robot = Robot(world, dock_postion, dock_heading, chassis, wheels, motors, blade, odometer)
 
     # Settings    
     robot.setDebug(False)
     autonomous = False
 
     # Track line
-    line = Line((2.0, 4.0), (8.0, 8.5))
+    line = Line(start=(2.0, 4.0), end=(8.0, 8.5))
     
     # Graphics
-    dock_point = world.point(dock, 'magenta')
-    track_line = world.ray(line.p1, line.p2, 'black')
-    track_arrow = world.arrow(line.p1, line.p2 - line.p1, 'red', width = 4)
+    dock_point  = world.point(center=dock_postion, color='magenta')
+    track_line  = world.ray(start=line.start, end=line.end, color='black')
+    track_arrow = world.arrow(origin=line.start, direction=(line.end - line.start), color='red', width = 4)
     
     # Debug algorithm
-    robot_point = world.point(dock, 'teal')
-    goal_point = world.point((0.0, 0.0), 'teal')
-    distance_line = world.line((0.0, 0.0), (0.0, 0.0), 'teal')
+    robot_point   = world.point(center=dock_postion, color='teal')
+    goal_point    = world.point(center=(0.0, 0.0), color='teal')
+    distance_line = world.line(start=(0.0, 0.0), end=(0.0, 0.0), color='teal')
     
     if not robot.debug():
         robot_point.hide()
@@ -127,10 +145,10 @@ def main():
                 goal_point.show()
                 distance_line.show()
         elif key == 'r':
-            line.p1 = Vector(random(1.1*xmin, 0.9*xmax), random(1.1*ymin, 0.9*ymax))
-            line.p2 = Vector(random(1.1*xmin, 0.9*xmax), random(1.1*ymin, 0.9*ymax))
-            track_arrow.set(line.p1, line.p2 - line.p1)
-            track_line.set(line.p1, line.p2)
+            line.start = Vector(random(1.1*xmin, 0.9*xmax), random(1.1*ymin, 0.9*ymax))
+            line.end = Vector(random(1.1*xmin, 0.9*xmax), random(1.1*ymin, 0.9*ymax))
+            track_arrow.set(origin=line.start, direction=(line.end - line.start))
+            track_line.set(start=line.start, end=line.end)
             v = 0.0
             w = 0.0
 
@@ -170,29 +188,29 @@ def main():
             # Chassis geometry
             l = chassis.trackwidth
 
-            # PID controller: cross track + heading control
+            # PID controller: cross track + robot_heading control
             kp = 2.0
             ki = 0.00
             kd = 0.00
 
-            # Cross-track distance weight in heading correction
+            # Cross-track distance weight in robot_heading correction
             kc = 1.0 # rad/m 
         
-            # Sensors
-            position = robot.gps()
-            heading = robot.imu()
+            # Robot sensors
+            robot_postion = robot.gps()
+            robot_heading = robot.imu()
 
             # Cross-track error: signed distance from robot to the desired shape.Line
-            goal = line.closest(position)
-            error_distance = length(goal - position)
+            goal_postion = line.closest(robot_postion)
+            error_distance = length(goal_postion - robot_postion)
             
             # Cross-track error signal
-            if cross(goal - position, line.p2 - line.p1) > 0.0:
+            if cross(goal_postion - robot_postion, line.end - line.start) > 0.0:
                 error_distance = -error_distance
 
-            # Heading error: difference between desired heading and robot heading
-            line_heading = angle(line.p2 - line.p1)
-            error_heading = wrap(line_heading - heading)
+            # robot_heading error: difference between desired robot_heading and robot robot_heading
+            line_heading = angle(line.end - line.start)
+            error_heading = wrap(line_heading - robot_heading)
 
             # Angular velocity PID controller
             error = kc*error_distance + error_heading
@@ -214,9 +232,9 @@ def main():
             w = np.clip(w, -wmax, wmax)
 
             # Updated Graphics
-            robot_point.move(position)
-            goal_point.move(goal)
-            distance_line.set(position, goal)
+            robot_point.move(robot_postion)
+            goal_point.move(goal_postion)
+            distance_line.set(robot_postion, goal_postion)
             
         # Actuator
         robot.move(v, w, dt)  # Actuator

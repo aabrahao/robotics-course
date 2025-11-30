@@ -14,7 +14,7 @@ class Transform:
 
     def __init__(self, translation=(0.0, 0.0), rotation=0.0, scaling=(1.0, 1.0)):
         self._translation: Vector = toVector(translation)
-        self._rotation: float     = float(rotation)
+        self._rotation: float     = wrap(rotation)
         self._scaling: Vector     = toVector(scaling)
 
     # -------------------------------------------------------------------------
@@ -27,7 +27,7 @@ class Transform:
 
     def rotation(self) -> float:
         """Return the rotation angle in radians."""
-        return float(self._rotation)
+        return wrap(self._rotation)
 
     def scaling(self) -> Vector:
         """Return the scaling factors as a Vector."""
@@ -46,7 +46,7 @@ class Transform:
         return self
 
     def rotate(self, angle, relative: bool = False):
-        angle = float(angle)
+        angle = wrap(angle)
         if relative:
             self._rotation += angle
         else:
@@ -56,7 +56,7 @@ class Transform:
 
     def scale(self, s, relative: bool = False):
         if np.isscalar(s):
-            s = Vector(float(s), float(s))
+            s = Vector(s, s)
         else:
             s = toVector(s)
         if relative:

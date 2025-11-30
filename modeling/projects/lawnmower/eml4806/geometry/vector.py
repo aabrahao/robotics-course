@@ -305,7 +305,7 @@ def join(xs, ys):
     """
     if len(xs) != len(ys):
         raise ValueError("xs and ys must have the same length")
-    return [Vector(float(x), float(y)) for x, y in zip(xs, ys)]
+    return [Vector(x, y) for x, y in zip(xs, ys)]
 
 # -----------------------------------------------------------------------------
 # BASIC GEOMETRIC OPERATIONS

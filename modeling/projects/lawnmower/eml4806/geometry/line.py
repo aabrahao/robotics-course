@@ -1,43 +1,41 @@
 import numpy as np
-
 from eml4806.geometry.vector import Vector, toVector
 
 class Line:
-    
     """Line segment defined by two Vector objects."""
 
-    __slots__ = ("_p1", "_p2")
+    __slots__ = ("_start", "_end")
 
-    def __init__(self, p1: Vector, p2: Vector):
-        self._p1 = toVector(p1)
-        self._p2 = toVector(p2)
+    def __init__(self, start: Vector, end: Vector):
+        self._start = toVector(start)
+        self._end   = toVector(end)
 
     # -------------------------------------------------------------------------
     # End point properties
     # -------------------------------------------------------------------------
 
     @property
-    def p1(self) -> Vector:
+    def start(self) -> Vector:
         """First end point (copy)."""
-        return Vector(self._p1)
+        return Vector(self._start)
 
-    @p1.setter
-    def p1(self, value: Vector) -> None:
-        self._p1 = toVector(value)
+    @start.setter
+    def start(self, value: Vector) -> None:
+        self._start = toVector(value)
 
     @property
-    def p2(self) -> Vector:
+    def end(self) -> Vector:
         """Second end point (copy)."""
-        return Vector(self._p2)
+        return Vector(self._end)
 
-    @p2.setter
-    def p2(self, value: Vector) -> None:
-        self._p2 = toVector(value)
+    @end.setter
+    def end(self, value: Vector) -> None:
+        self._end = toVector(value)
 
-    def set(self, p1: Vector, p2: Vector):
+    def set(self, start: Vector, end: Vector):
         """Replace both end points."""
-        self._p1 = toVector(p1)
-        self._p2 = toVector(p2)
+        self._start = toVector(start)
+        self._end   = toVector(end)
         return self
 
     # -------------------------------------------------------------------------
@@ -45,24 +43,24 @@ class Line:
     # -------------------------------------------------------------------------
 
     def dx(self) -> float:
-        """Δx = p2.x - p1.x"""
-        return self._p2.x - self._p1.x
+        """Δx = end.x - start.x"""
+        return self._end.x - self._start.x
 
     def dy(self) -> float:
-        """Δy = p2.y - p1.y"""
-        return self._p2.y - self._p1.y
+        """Δy = end.y - start.y"""
+        return self._end.y - self._start.y
 
     def vector(self) -> Vector:
-        """Return the direction vector p2 - p1."""
-        return self._p2 - self._p1
+        """Return the direction vector end - start."""
+        return self._end - self._start
 
     def length(self) -> float:
-        """Segment length |p2 - p1|."""
+        """Segment length |end - start|."""
         return self.vector().norm()
 
     def middle(self) -> Vector:
         """Midpoint of the segment."""
-        return (self._p1 + self._p2) * 0.5
+        return (self._start + self._end) * 0.5
 
     def slope(self, tol: float = 1e-9) -> float | None:
         """Return dy/dx or None if (almost) vertical."""
@@ -77,7 +75,7 @@ class Line:
 
     def clone(self) -> "Line":
         """Return a copy of this line segment."""
-        return Line(self._p1, self._p2)
+        return Line(self._start, self._end)
 
     # -------------------------------------------------------------------------
     # Parametric + direction
@@ -92,9 +90,9 @@ class Line:
         return v / n
 
     def at(self, t: float) -> Vector:
-        """Return parametric point: t=0 → p1, t=1 → p2."""
+        """Return parametric point: t=0 → start, t=1 → end."""
         v = self.vector()
-        return self._p1 + v * t
+        return self._start + v * t
 
     # -------------------------------------------------------------------------
     # Geometric helpers (infinite line & segment logic)
@@ -103,46 +101,36 @@ class Line:
     def intersect(self, other: "Line", tol: float = 1e-9) -> Vector | None:
         """
         Intersection point of two INFINITE lines, or None if (almost) parallel.
-
-        Uses 2D cross product (scalar z-component).
         """
-        p = self._p1          # base on line 1
-        r = self.vector()     # direction of line 1
-        q = other._p1         # base on line 2
-        s = other.vector()    # direction of line 2
+        p = self._start            # base on line 1
+        r = self.vector()          # direction of line 1
+        q = other._start           # base on line 2
+        s = other.vector()         # direction of line 2
 
-        r_cross_s = r.cross(s)  # scalar
+        r_cross_s = r.cross(s)
         if abs(r_cross_s) <= tol:
-            # Parallel or coincident (we treat both as 'no unique intersection')
             return None
 
         qp = q - p
-        t = qp.cross(s) / r_cross_s  # parameter along line 1
-
+        t = qp.cross(s) / r_cross_s
         return p + r * t
 
     def coincident(self, p: Vector, tol: float = 1e-9) -> bool:
-        """
-        Check if a point lies on the infinite line through p1 → p2
-        (colinearity test).
-        """
+        """Check if a point lies on the infinite line through start → end."""
         p = toVector(p)
-        v1 = p - self._p1       # p - p1
-        v2 = self._p2 - self._p1  # p2 - p1
+        v1 = p - self._start         # p - start
+        v2 = self._end - self._start # end - start
         return abs(v1.cross(v2)) <= tol
 
     def inside(self, p: Vector, tol: float = 1e-9) -> bool:
-        """
-        True if point lies on the segment (colinear + between endpoints).
-        """
+        """True if point lies on the segment (colinear + between endpoints)."""
         p = toVector(p)
 
-        # Must be on the infinite line first.
         if not self.coincident(p, tol):
             return False
 
-        v = self.vector()        # p2 - p1
-        w = p - self._p1         # p - p1
+        v = self.vector()          # end - start
+        w = p - self._start        # p - start
 
         dot = v.dot(w)
         if dot < -tol:
@@ -153,19 +141,19 @@ class Line:
 
     def closest(self, p: Vector, tol: float = 1e-9) -> Vector:
         """
-        Closest point on the INFINITE line (through p1 → p2) to point p.
-        If the line is degenerate (p1 ≈ p2), returns a copy of p1.
+        Closest point on the INFINITE line (through start → end) to point p.
+        If the line is degenerate (start ≈ end), returns a copy of start.
         """
         p = toVector(p)
         v = self.vector()
         seg_len2 = v.dot(v)
 
         if seg_len2 <= tol:  # degenerate line
-            return self.p1
+            return self.start  # property, returns a copy
 
-        w = p - self._p1
+        w = p - self._start
         t = v.dot(w) / seg_len2
-        return self._p1 + v * t
+        return self._start + v * t
 
     # -------------------------------------------------------------------------
     # Convenience
@@ -173,11 +161,11 @@ class Line:
 
     def __repr__(self):
         return (
-            f"Line({self._p1!r}, {self._p2!r}, "
+            f"Line({self._start!r}, {self._end!r}, "
             f"length={self.length():.3f}, slope={self.slope()})"
         )
 
     def __iter__(self):
-        """Allow: p1, p2 = line."""
-        yield Vector(self._p1)
-        yield Vector(self._p2)
+        """Allow: start, end = line."""
+        yield Vector(self._start)
+        yield Vector(self._end)

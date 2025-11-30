@@ -4,9 +4,8 @@ from enum import Enum, auto
 from math import sin, cos
 from numpy import clip as clamp
 
-import eml4806.geometry.angle as angle
-import eml4806.geometry.math as math
-import eml4806.geometry.pose as pose
+from eml4806.geometry.vector import Vector, toVector, toVectors, length, angle, unit, polar, dot, cross
+from eml4806.geometry.angle import wrap, radians
 
 class State(Enum):
     READY = auto()
@@ -37,16 +36,16 @@ class Task:
 
 ###########################################################
 
-class Teleop(Task):
+class TeleopTask(Task):
     pass
 
 ###########################################################
 
-class Wait(Task):
+class WaitTask(Task):
 
     def __init__(self, duration):
         super().__init__('Wait', f'duration: {duration}')
-        self.duration = duration
+        self.duration = float(duration)
         self.elapsed = 0.0
 
     def setup(self, context, dt):
@@ -64,28 +63,29 @@ class Wait(Task):
 ###########################################################
 
 @dataclass
-class GoToSettings:
+class MoveToTaskSettings:
 
-    # Distance behaviour
-    heading_switch_radious = 3.0 # m distance at which we switch from "approach" heading to final heading
+    # Switch distance from "approach" robot_heading to final robot_heading
+    heading_switch_radious = 3.0 # m 
 
     # Solution tolerance
     distance_tolerance = 0.05 # m (~1 inch), arrived?
-    angle_tolerance = angle.radians(10.0) # aligned?
+    angle_tolerance = radians(10.0) # aligned?
 
     # Control gains (>0, k_beta < 0)
     k_rho   =  1.0  # k1 > 0
     k_alpha =  2.0  # k2 > 0
     k_beta  = -1.5  # k3 < 0
 
-class MoveTo(Task):
+class MoveToTask(Task):
 
     '''Move to a desired pose'''
 
-    def __init__(self, p, settings=GoToSettings()):
-        self.goal = pose.ensureOne(p)
+    def __init__(self, position, heading, settings=MoveToTaskSettings()):
+        self.goal_position = Vector(position)
+        self.goal_heading = wrap(heading)
         self.settings = settings
-        super().__init__('MoveTo', f'pose: [{p[0]:.2f}, {p[1]:.2f}, {p[2]:.3f}]')
+        super().__init__('MoveToTask', f'position: {self.goal_position}, heading: {self.goal_heading:.3f}]')
 
     def setup(self, context, dt):
         super().setup(context, dt)
@@ -94,7 +94,8 @@ class MoveTo(Task):
     def run(self, context, dt):
         # Alias
         robot = context.robot
-        goal = self.goal
+        goal_position = self.goal_position
+        goal_heading = self.goal_heading
         vmax = context.vmax
         wmax = context.wmax
 
@@ -107,40 +108,43 @@ class MoveTo(Task):
         dtol = self.settings.distance_tolerance
         htol = self.settings.angle_tolerance
 
-        # Final heading approch
+        # Final robot_heading approch
         hdist = self.settings.heading_switch_radious
 
         # World frame
-        position = robot.gps()
-        heading = robot.imu()
-        target = pose.position(goal) - position
-        target_distance = math.length(target)
+        robot_position = robot.gps()
+        robot_heading = robot.imu()
+        target_position = goal_position - robot_position
+        target_distance = length(target_position)
 
         # Heading selection
         if target_distance > hdist: 
-            target_heading = math.angle(target) # Point towards goal
+            target_heading = angle(target_position) # Point towards goal
         else: 
-            target_heading = pose.heading(goal) # Enforce final pose heading
+            target_heading = goal_heading # Enforce final pose robot_heading
                         
-        # Robot frame: error = rotation(heading).T @ target
-        dx, dy = target
-        ex =  cos(heading)*dx + sin(heading)*dy
-        ey = -sin(heading)*dx + cos(heading)*dy
-        eh = angle.wrap(target_heading - heading)
+        # Distance
+        dx, dy = target_position
+
+        # Error in robot frame rotation(robot_heading).T @ target_position
+        ex =  cos(robot_heading)*dx + sin(robot_heading)*dy
+        ey = -sin(robot_heading)*dx + cos(robot_heading)*dy
+        
+        eh = wrap(target_heading - robot_heading)
             
         # Check goal tolerance
         if (target_distance < dtol) and (abs(eh) < htol):
-                v = 0.0
-                w = 0.0
-                return State.DONE
+            v = 0.0
+            w = 0.0
+            return State.DONE
 
         # Robot frame
-        error = math.new(ex, ey)
+        error = Vector(ex, ey)
 
         # Polar error coordinates
-        rho = math.length(error)
-        alpha = math.angle(error)
-        beta = angle.wrap( eh - alpha )
+        rho = length(error)
+        alpha = angle(error)
+        beta = wrap( eh - alpha )
 
         # Lyapunov-based control law (saturated)
         v = k_rho*rho*cos(alpha)
@@ -162,22 +166,22 @@ class MoveTo(Task):
 
 ###########################################################
 @dataclass
-class AlignSettings:
+class RotateToTaskSettings:
 
     # Solution tolerance
-    angle_tolerance = angle.radians(10.0) # aligned?
+    angle_tolerance = radians(10.0) # aligned?
 
     # Control gains
     kp  = 1.0
 
-class RotateTo(Task):
+class RotateToTask(Task):
 
-    '''Rotate to a desired heading'''
+    '''Rotate to a desired robot_heading'''
 
-    def __init__(self, heading, settings=AlignSettings()):
-        self.heading = angle.wrap(heading)
+    def __init__(self, robot_heading, settings=RotateToTaskSettings()):
+        self.robot_heading = wrap(robot_heading)
         self.settings = settings
-        super().__init__('RotateTo', f'heading: [{heading:.3f}]')
+        super().__init__('RotateToTask', f'robot_heading: [{robot_heading:.3f}]')
 
     def setup(self, context, dt):
         super().setup(context, dt)
@@ -186,8 +190,8 @@ class RotateTo(Task):
     def run(self, context, dt):
         # Alias
         robot = context.robot
-        heading = robot.imu()
-        target_heading = self.heading
+        robot_heading = robot.imu()
+        target_heading = self.robot_heading
         wmax = context.wmax
 
         # Controller gains
@@ -197,11 +201,11 @@ class RotateTo(Task):
         htol = self.settings.angle_tolerance
         
         # World frame
-        heading = robot.imu()
+        robot_heading = robot.imu()
 
         # Error
-        error = target_heading - heading
-        error = angle.wrap(error)
+        error = target_heading - robot_heading
+        error = wrap(error)
             
         # Check goal tolerance
         if abs(error) < htol:
@@ -220,20 +224,24 @@ class RotateTo(Task):
 
 ###########################################################
 
-class Halt(Task):
+class HaltTask(Task):
+
     def __init__(self):
-        super().__init__('Halt', 'v: 0.0, w: 0.0')
+        super().__init__('HaltTask', 'v: 0.0, w: 0.0')
+
     def cleanup(self, context, dt):
         super().cleanup(context, dt)
         context.robot.move(0.0, 0.0, dt)
 
 ###########################################################
 
-class Blade(Task):
+class BladeControlTask(Task):
+
     def __init__(self, state):
         self.state = state
         positions = ['off', 'low', 'high']
-        super().__init__('Blade', f'{positions[state]}')
+        super().__init__('BladeControlTask', f'{positions[state]}')
+    
     def cleanup(self, context, dt):
         super().cleanup(context, dt)
         context.robot.setBlade(self.state)

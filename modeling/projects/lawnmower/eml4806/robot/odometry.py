@@ -2,7 +2,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from numpy import pi, sin, cos, clip, array
 
-from eml4806.geometry.vector import Vector
+from eml4806.geometry.vector import Vector, toVector
+from eml4806.geometry.angle import wrap
 
 ##############################################################################################
 
@@ -12,10 +13,12 @@ class SkidDriveOdometer(ABC):
     maximum_linear_velocity : float = None # Impose safety speed limites in the internal controller
     maximum_angular_velocity: float = None # Impose safety rotation limites in the internal controller
     
-    def initilize(self, pose):
-        self._x = float(pose[0])
-        self._y = float(pose[1])
-        self._theta = float(pose[2])
+    def initilize(self, position, heading):
+        position = toVector(position)
+        heading = wrap(heading)
+        self._x = position.x
+        self._y = position.y
+        self._theta = heading
         self._v = 0.0
         self._w = 0.0
 

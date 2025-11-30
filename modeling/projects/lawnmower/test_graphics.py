@@ -16,7 +16,7 @@ import eml4806.graphics.shape as shape
 
 from eml4806.graphics.style import pen, brush
 
-from eml4806.geometry.vector import Vector, toVector, toVectors
+from eml4806.geometry.vector import Vector, toVector, toVectors, join
 
 def main():
 
@@ -34,17 +34,23 @@ def main():
 
     world = worksapce.Workspace(xmin, ymin, xmin + (xmax-xmin), ymin + (ymax-ymin), menu)
     
-    points = [
+    points1 = [
         [2.0, 2.0],
         [0.0, 3.0],
         [2.0, 8.0],
         [8.0, 4.0]
     ]
 
+    x = random(0, 8, 5)
+    y = random(0, 8, 5)
+    print(x)
+    print(y)
+    points2 = join(x, y)
+
     rectangle = world.rectangle((4,4), (1, 2),'blue')
     circle = world.circle((4, 5), 2, 'orange')
-    polyline = world.polyline(points,'red', width=2, marker='o')
-    polygon = world.polygon(points, 'green')
+    polyline = world.polyline(points1,'red', width=2, marker='o')
+    polygon = world.polygon(points2, 'green')
     point = world.point((4, 2), 'red')
     arrow = world.arrow((2,1), (1,2), 'magenta', width=3)
     ray = world.ray((1,1), (2,3), 'red')
