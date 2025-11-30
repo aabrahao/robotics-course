@@ -1,30 +1,22 @@
-# Simulate a particle moving around a circle.
-# Lawn mower robot
-# https://youtu.be/2Rhsv8fFqCE
-
 import numpy as np
 import matplotlib.pyplot as plt
 
-from numpy.random import uniform as random
-from numpy import pi
-
 from enum import Enum
 
-import eml4806.sensor.keyboard as keyboard
+from numpy import sin, cos, pi
+from numpy.random import uniform as random
 
-import eml4806.geometry.angle as angle
-import eml4806.geometry.line as line
-import eml4806.geometry.vector as vector
-import eml4806.geometry.transform as transform
-import eml4806.geometry.pose as pose
+from eml4806.sensor.keyboard import key as readKeyboard
 
-import eml4806.graphics.workspace as worksapce
-import eml4806.graphics.shape as shape
-import eml4806.graphics.style as style
+from eml4806.graphics.workspace import Workspace
 
-import eml4806.robot.skidsteer as lawnmower
-import eml4806.robot.odometry as odometry
-import eml4806.robot.tool as tool
+from eml4806.robot.skidsteer import Robot, Chassis, Wheel, Motor 
+from eml4806.robot.tool import Blade
+from eml4806.robot.odometry import AnalyticalSkidDriveOdometer
+
+from eml4806.geometry.vector import Vector, length, angle, unit, polar, dot, cross
+from eml4806.geometry.angle import radians, wrap
+from eml4806.geometry.line import Line
 
 def main():
 
@@ -40,87 +32,81 @@ def main():
     ymin = -1.0
     ymax = 10.0
 
-    world = worksapce.Workspace(xmin, xmax, ymin, ymax, menu)
+    world = Workspace(xmin, ymin, xmin + (xmax-xmin), ymin + (ymax-ymin), menu)
 
-    # Robot docking station
-    docking = pose.new(0.0, 0.0, angle.radians(10.0))
+    # Robot dock station
+    dock = Vector(0.0, 0.0)
+    dock_heading = radians(10.0)
 
     # Robot physics
     # ClearPath Husky A200 Ground Platform
     # https://docs.clearpathrobotics.com/docs_robots/outdoor_robots/husky/a200/user_manual_husky/
 
-    chassis = lawnmower.Chassis()
+    chassis = Chassis()
     chassis.length = 0.812  # m
     chassis.width = 0.421  # m
     chassis.wheelbase = 0.512  # m
     chassis.trackwidth = 0.550  # m
 
-    wheels = lawnmower.Wheel()
+    wheels = Wheel()
     wheels.diameter = 0.330  # m
     wheels.width = 0.114  # m
 
-    motors = lawnmower.Motor()
+    motors = Motor()
     motors.maximum_angular_velocity = 5.45  # rad/s (~52 rpm maximum)
     
-    blade = tool.Blade()
+    blade = Blade()
     blade.diameter = 0.9 * chassis.width  # m
 
-    odometer = odometry.AnalyticalSkidDriveOdometer()
+    odometer = AnalyticalSkidDriveOdometer()
     odometer.track_width = chassis.trackwidth
     odometer.maximum_linear_velocity = None # 1.0  # m/s
     odometer.maximum_angular_velocity = None # 3.5  # rad/s
 
     # Simulated robot
-    robot = lawnmower.Robot(world, pose.position(docking), pose.heading(docking), chassis, wheels, motors, blade, odometer)
+    robot = Robot(world, dock, dock_heading, chassis, wheels, motors, blade, odometer)
 
     # Settings    
     robot.setDebug(False)
     autonomous = False
 
     # Track line
-    line_start = vector.new(2.0, 4.0)
-    line_end = vector.new(8.0, 8.5)
+    line = Line((2.0, 4.0), (8.0, 8.5))
     
-    # Debug graphics
-
-    # docking
-    docking_point = shape.Point(world, pose.position(docking), style=style.brush('magenta'))
-            
-    # Pursuit line
-    track_line = shape.Ray(world, line_start, line_end, style=style.pen('black', 1))
-    track_arrow = shape.Arrow(world, line_start, line_end-line_start, style=style.brush('red', 4))
+    # Graphics
+    dock_point = world.point(dock, 'magenta')
+    track_line = world.ray(line.p1, line.p2, 'black')
+    track_arrow = world.arrow(line.p1, line.p2 - line.p1, 'red', width = 4)
     
-    # Debug
-    position_point = shape.Point(world, pose.position(docking), style=style.brush('teal'))
-    goal_point = shape.Point(world, (0.0, 0.0), style=style.brush('teal'))
-    distance_line = shape.Line(world, (0.0, 0.0), (0.0, 0.0), style=style.pen('teal'))
+    # Debug algorithm
+    robot_point = world.point(dock, 'teal')
+    goal_point = world.point((0.0, 0.0), 'teal')
+    distance_line = world.line((0.0, 0.0), (0.0, 0.0), 'teal')
+    
     if not robot.debug():
-        position_point.hide()
+        robot_point.hide()
         goal_point.hide()
         distance_line.hide()
-    
-    # Simulation
-    t = 0.0 # s
-    dt = 0.02 # s (~50 Hz)
-
-    # Robot control variables
-    v = 0.0  # Left track linear velocity (m/s)
-    w = 0.0  # Left track linear velocity (m/s)
+        
+    # Control variables
+    v = 0.0  # Linear speed (m/s)
+    w = 0.0  # Angular speed (rad/s)
 
     # Controller saturation
     vmax = motors.maximum_angular_velocity*(0.5*wheels.diameter)
-    wmax = angle.radians(60.0) # rad/s
+    wmax = radians(60.0) # rad/s
    
     # PID Controller
     error_integral = 0.0        
     error_previous = 0.0
  
-    while True:
+    # Simulation
+    t = 0.0 # s
+    dt = 0.02 # s (~50 Hz)
 
-        #######################################################################
-        # Controller
-    
-        key = keyboard.key()
+    while True:
+            
+        key = readKeyboard()
 
         # Commands inside the microntroller
         if key == 'q':
@@ -131,20 +117,20 @@ def main():
             w = 0.0
         elif key == 'd':
             if robot.debug():
-                robot.setDebug( False )
-                position_point.hide()
+                robot.setDebug(False)
+                robot_point.hide()
                 goal_point.hide()
                 distance_line.hide()
             else:
-                robot.setDebug( True )
-                position_point.show()
+                robot.setDebug(True)
+                robot_point.show()
                 goal_point.show()
                 distance_line.show()
         elif key == 'r':
-            line_start = vector.new(random(1.1*xmin, 0.9*xmax), random(1.1*ymin, 0.9*ymax))
-            line_end   = vector.new(random(1.1*xmin, 0.9*xmax), random(1.1*ymin, 0.9*ymax))
-            track_arrow.set(line_start, line_end-line_start)
-            track_line.set(line_start, line_end)
+            line.p1 = Vector(random(1.1*xmin, 0.9*xmax), random(1.1*ymin, 0.9*ymax))
+            line.p2 = Vector(random(1.1*xmin, 0.9*xmax), random(1.1*ymin, 0.9*ymax))
+            track_arrow.set(line.p1, line.p2 - line.p1)
+            track_line.set(line.p1, line.p2)
             v = 0.0
             w = 0.0
 
@@ -197,16 +183,16 @@ def main():
             heading = robot.imu()
 
             # Cross-track error: signed distance from robot to the desired shape.Line
-            goal = line.closest(line_start, line_end, position)
-            error_distance = vector.length(goal - position)
+            goal = line.closest(position)
+            error_distance = length(goal - position)
             
             # Cross-track error signal
-            if vector.cross(goal - position, line_end - line_start) > 0.0:
+            if cross(goal - position, line.p2 - line.p1) > 0.0:
                 error_distance = -error_distance
 
             # Heading error: difference between desired heading and robot heading
-            line_heading = vector.angle(line_end - line_start)
-            error_heading = angle.wrap(line_heading - heading)
+            line_heading = angle(line.p2 - line.p1)
+            error_heading = wrap(line_heading - heading)
 
             # Angular velocity PID controller
             error = kc*error_distance + error_heading
@@ -228,7 +214,7 @@ def main():
             w = np.clip(w, -wmax, wmax)
 
             # Updated Graphics
-            position_point.move(position)
+            robot_point.move(position)
             goal_point.move(goal)
             distance_line.set(position, goal)
             

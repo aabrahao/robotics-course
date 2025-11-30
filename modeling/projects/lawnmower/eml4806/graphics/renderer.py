@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 from matplotlib.patches import FancyArrowPatch as ArrowPatch
 
-import eml4806.geometry.vector as vector
+from eml4806.geometry.vector import Vector, toVector, toVectors, split
 
 ###############################################################
 
@@ -30,11 +30,12 @@ class PlotRenderer(AbstractRenderer):
         shape._artist = shape._ax.plot([], [])[0]
 
     def updateGeometry(self, shape, vertices):
-        vertices = vector.ensureMany(vertices)
-        if vector.isEmpty(vertices): 
+        vertices = toVectors(vertices)
+        if not vertices: 
             shape._artist.set_data([], [])
-        else: 
-            shape._artist.set_data(vertices[:, 0], vertices[:, 1])
+        else:
+            x, y = split(vertices) 
+            shape._artist.set_data(x, y)
 
     def updateStyle(self, shape):
         s = shape._style
@@ -55,8 +56,8 @@ class FillRenderer(AbstractRenderer):
         shape._artist = shape._ax.fill([], [])[0]
 
     def updateGeometry(self, shape, vertices):
-        vertices = vector.ensureMany(vertices)
-        if vector.isEmpty(vertices): 
+        vertices = toVectors(vertices)
+        if not vertices: 
             shape._artist.set_xy([])
         else: 
             shape._artist.set_xy(vertices)
@@ -83,8 +84,10 @@ class ArrowRenderer(AbstractRenderer):
         )
         shape._ax.add_patch(shape._artist)
 
-    def updateGeometry(self, shape, o):
-        shape._artist.set_positions((o[0, 0], o[0, 1]), (o[1, 0], o[1, 1]))
+    def updateGeometry(self, shape, points):
+        x1,y1 = points[0]
+        x2,y2 = points[1]
+        shape._artist.set_positions((x1, y1), (x2, y2))
 
     def updateStyle(self, shape):
         s = shape._style

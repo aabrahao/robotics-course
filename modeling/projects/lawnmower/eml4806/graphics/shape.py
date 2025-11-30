@@ -1,93 +1,102 @@
 from abc import ABC, abstractmethod
 
-import math
 import numpy as np
-import matplotlib.pyplot as plt
 
-import eml4806.geometry.vector as vector
 from eml4806.geometry.transform import Transform
+from eml4806.geometry.vector import Vector, toVector, toVectors, angle, length, polar, unit
 
-from eml4806.graphics.workspace import Workspace
 from eml4806.graphics.style import pen, brush
 from eml4806.graphics.renderer import PlotRenderer, FillRenderer, ArrowRenderer
 
 from numpy import sin, cos, pi
 
-###############################################################
-
+# ---------------------------------------------------------------------------
+# Abstract base: Drawable with a Transform
+# ---------------------------------------------------------------------------
 
 class AbstractDrawable(ABC):
-    """No _geometry yet!"""
 
-    def __init__(self, transform, parent=None):
+    """Base drawable object with a local Transform and optional parent."""
+
+    def __init__(self, transform: Transform, parent=None):
         self._transform = transform.clone()
         self._parent = parent
 
-    def transform(self):
+    def position(self) -> Vector:
+        return self._transform.translation()
+
+    def setPosition(self, p):
+        self._transform.translate(p)
+        self._updateGeometry()
+
+    def orientation(self) -> float:
+        return self._transform.rotation()
+
+    def setOrientation(self, a):
+        self._transform.rotate(a)
+        self._updateGeometry()
+
+    def transform(self) -> Transform:
         return self._transform.clone()
 
-    def setTransform(self, value):
-        self._transform = value.clone()
+    def setTransform(self, tf: Transform):
+        self._transform = tf.clone()
         self._updateGeometry()
 
     def reset(self):
         self._transform = Transform()
         self._updateGeometry()
 
-    def move(self, position, relative=False):
-        if relative:
-            self._transform._position += position
-        else:
-            self._transform._position = position
+    def move(self, p, relative: bool = False):
+        self.translate(p, relative)
+
+    def translate(self, p, relative: bool = False):
+        self._transform.translate(p, relative)
         self._updateGeometry()
 
-    def rotate(self, angle, relative=False):
-        if relative:
-            self._transform._orientation += angle
-        else:
-            self._transform._orientation = float(angle)
+    def rotate(self, a, relative: bool = False):
+        self._transform.rotate(a, relative)
         self._updateGeometry()
 
-    def scale(self, scaling, relative=False):
-        if np.isscalar(scaling):
-            scaling = (scaling, scaling)
-        if relative:
-            self._transform._scaling *= scaling
-        else:
-            self._transform._scaling = scaling
+    def scale(self, s, relative: bool = False):
+        self._transform.scale(s, relative)
         self._updateGeometry()
 
     def setParent(self, parent):
         self._parent = parent
 
     @abstractmethod
-    def _updateGeometry(self): ...
+    def _updateGeometry(self):
+        ...
 
+# ---------------------------------------------------------------------------
+# GroupShape of drawables
+# ---------------------------------------------------------------------------
 
-###############################################################
+class GroupShape(AbstractDrawable):
 
+    """Just a collection of Drawables that share a parent transform."""
 
-class Group(AbstractDrawable):
-    """Just a collection of Drawables"""
-
-    def __init__(self, children, transform=Transform()):
+    def __init__(self, workspace: 'Workspace', shapes, transform: Transform = Transform()):
         super().__init__(transform)
-        self._children = list(children)
-        for child in self._children:
-            child.setParent(self)
+        self._shapes = list(shapes)
+        for shape in self._shapes:
+            shape.setParent(self)
 
     def _updateGeometry(self):
-        for child in self._children:
-            child._updateGeometry()
+        for shape in self._shapes:
+            shape._updateGeometry()
 
 
-###############################################################
-
+# ---------------------------------------------------------------------------
+# AbstractShape – connects geometry with renderer and style
+# ---------------------------------------------------------------------------
 
 class AbstractShape(AbstractDrawable):
-    """Define _geometry"""
 
-    def __init__(self, workspace, style, transform, renderer):
+    """Base class for shapes that define a _geometry() method."""
+
+    def __init__(self, workspace: 'Workspace', style, transform: Transform, renderer):
         super().__init__(transform)
         self._ax = workspace.axis
         self._style = style
@@ -112,7 +121,7 @@ class AbstractShape(AbstractDrawable):
 
     def _updateGeometry(self):
         vertices = self._geometry()
-        if vector.isEmpty(vertices):
+        if not vertices:
             return
         if self._parent is None:
             T = self._transform
@@ -123,8 +132,7 @@ class AbstractShape(AbstractDrawable):
 
     @abstractmethod
     def _geometry(self):
-        """Create the shape's vertices"""
-        pass
+        ...
 
     def _make(self):
         self._renderer.make(self)
@@ -133,102 +141,120 @@ class AbstractShape(AbstractDrawable):
         self._renderer.updateStyle(self)
 
 
-###############################################################
+# ---------------------------------------------------------------------------
+# RectangleShape
+# ---------------------------------------------------------------------------
 
+class RectangleShape(AbstractShape):
 
-class Rectangle(AbstractShape):
-
-    def __init__(self, workspace, position, width, height, angle=0.0, style=brush()):
-        self.w = width
-        self.h = height
+    def __init__(self, workspace, center, size, angle=0.0, style=brush()):
+        self._size = toVector(size)
         super().__init__(
             workspace,
             style,
-            transform=Transform(position=position, orientation=angle),
-            renderer=FillRenderer(),
-        )
-
-    def _geometry(self):
-        w = 0.5 * self.w
-        h = 0.5 * self.h
-        return vector.ensureMany([[-w, -h], [w, -h], [w, h], [-w, h]])
-
-###############################################################
-
-class Circle(AbstractShape):
-
-    def __init__(self, workspace, position, radious, style=brush()):
-        self._radious = radious
-        super().__init__(
-            workspace, 
-            style, 
-            transform=Transform(position=position), 
+            transform=Transform(translation=center, rotation=angle),
             renderer=FillRenderer()
         )
 
-    def set(self, p, r):
-        self._radious = r
-        self.move(p)
+    def set(self, c, s):
+        self.setCenter(c)
+        self.setSize(s)
+
+    def setCenter(self, c):
+        self.translate(c, relative=False)
+
+    def setSize(self, s):
+        self._size = toVector(s)
+        self._updateGeometry()
+
+    def _geometry(self):
+        w, h = 0.5*self._size
+        return [
+            Vector(-w, -h),
+            Vector(+w, -h),
+            Vector(+w, +h),
+            Vector(-w, +h)
+        ]
+
+# ---------------------------------------------------------------------------
+# CircleShape
+# ---------------------------------------------------------------------------
+
+class CircleShape(AbstractShape):
+
+    def __init__(self, workspace, center, radious, style=brush()):
+        self._radious = float(radious)
+        super().__init__(
+            workspace,
+            style,
+            transform=Transform(translation=center),
+            renderer=FillRenderer()
+        )
+
+    def set(self, c, r):
+        self.setCenter(c)
+        self.setRadious(r)
+
+    def setCenter(self, c):
+        self.translate(c)
 
     def setRadious(self, r):
-        self._radious = r
+        self._radious = float(r)
         self._updateGeometry()
 
     def _geometry(self):
         r = self._radious
-        a = np.linspace(0.0, 2*pi, 72, endpoint=False)
-        x = r*cos(a)
-        y = r*sin(a)
-        return vector.new(x, y)
+        a = np.linspace(0.0, 2 * pi, 72, endpoint=False)
+        return [Vector(r * cos(t), r * sin(t)) for t in a]
 
-###############################################################
+# ---------------------------------------------------------------------------
+# PolygonShape & PolylineShape
+# ---------------------------------------------------------------------------
 
-class Polygon(AbstractShape):
+class PolygonShape(AbstractShape):
 
     def __init__(self, workspace, edges=[], style=brush(), renderer=FillRenderer()):
-        self._points = vector.ensureMany(edges)
+        self._points = toVectors(edges)
         super().__init__(workspace, style, Transform(), renderer)
 
     def set(self, edges):
         self.setPoints(edges)
 
-    def isEmpty(self):
-        return vector.isEmpty(self._points)
-
-    def points(self):
-        return self._points.copy()
+    def points(self) -> list[Vector]:
+        """Return a copy of the internal points list."""
+        return [Vector(p) for p in self._points]
 
     def setPoints(self, points):
-        self._points = vector.ensureMany(points)
+        self._points = toVectors(points)
         self._updateGeometry()
 
     def clear(self):
-        self.setPoints([])
+        self._points = []
         self._updateGeometry()
 
-    def last(self):
-        if self.isEmpty():
+    def last(self) -> Vector | None:
+        if not self._points:
             return None
-        return self._points[-1, :]
+        return self._points[-1]
 
     def append(self, edges):
-        self._points = vector.append(self._points, edges)
+        self._points.extend(toVectors(edges))
         self._updateGeometry()
 
     def _geometry(self):
         return self._points
 
-###############################################################
-
-class Polyline(Polygon):
+class PolylineShape(PolygonShape):
 
     def __init__(self, workspace, edges=[], style=pen(), marker=None, renderer=PlotRenderer()):
         self._marker = marker
         super().__init__(workspace, edges, style, renderer)
 
-###############################################################
+# ---------------------------------------------------------------------------
+# LineShape
+# ---------------------------------------------------------------------------
 
-class Line(Polyline):
+class LineShape(PolylineShape):
 
     def __init__(self, workspace, start, end, style=pen()):
         super().__init__(workspace, [start, end], style)
@@ -242,19 +268,23 @@ class Line(Polyline):
     def setEnd(self, point):
         self.set([self._points[0], point])
 
-###############################################################
+# ---------------------------------------------------------------------------
+# PointShape (as a single-vertex PolylineShape)
+# ---------------------------------------------------------------------------
 
-class Point(Polyline):
+class PointShape(PolylineShape):
 
-    def __init__(self, workspace, position, style=brush()):
-        super().__init__(workspace, [position], style=style, marker='o')
-    
-    def set(self, p):
-        self.setPoints([p])
+    def __init__(self, workspace, center, style=brush()):
+        super().__init__(workspace, [center], style=style, marker='o')
 
-###############################################################
+    def set(self, c):
+        self.setPoints([c])
 
-class Ray(Line):
+# ---------------------------------------------------------------------------
+# RayShape (infinite-ish line)
+# ---------------------------------------------------------------------------
+
+class RayShape(LineShape):
 
     def __init__(self, workspace, start, end, style=pen()):
         super().__init__(workspace, start, end, style)
@@ -272,41 +302,44 @@ class Ray(Line):
         super().setEnd(point)
         self.makeInfity()
 
-    def makeInfity(self, big=1e8):
+    def makeInfity(self, big=1e9):
         p1 = self._points[0]
         p2 = self._points[1]
-        u = vector.unit(p2 - p1)
-        p2 = p1 + u * big
-        p1 = p1 - u * big
-        super().set(p1, p2)
+        u = unit(p2 - p1)
+        p_far = p1 + u * big
+        p_near = p1 - u * big
+        super().set(p_near, p_far)
 
-###############################################################
+# ---------------------------------------------------------------------------
+# ArrowShape
+# ---------------------------------------------------------------------------
 
-class Arrow(AbstractShape):
+class ArrowShape(AbstractShape):
 
-    def __init__(self, workspace, origin, direction, style=brush(), scaling=1.0, magnification=10.0):
-        self._origin = vector.ensureOne(origin)
-        self._direction = vector.ensureOne(direction)
+    def __init__(self, workspace, origin, direction, style=brush(),
+                 scaling=1.0, magnification=10.0):
+        self._origin = toVector(origin)
+        self._direction = toVector(direction)
         self._scaling = float(scaling)
         self._magnification = float(magnification)
         super().__init__(
-            workspace, 
-            style, 
-            transform=Transform(), 
-            renderer=ArrowRenderer()
+            workspace,
+            style,
+            transform=Transform(),
+            renderer=ArrowRenderer(),
         )
 
     def set(self, o, d):
         self.setOrigin(o)
         self.setDirection(d)
-        
+
     def setOrigin(self, o):
-        self._origin = vector.ensureOne(o)
+        self._origin = toVector(o)
         self._updateGeometry()
 
     def setDirection(self, d):
-        self._direction = vector.ensureOne(d)
+        self._direction = toVector(d)
         self._updateGeometry()
-    
+
     def _geometry(self):
-        return np.array([self._origin, self._origin + self._scaling*self._direction])
+        return [self._origin, self._origin + self._scaling*self._direction]

@@ -12,8 +12,8 @@ def toGray8(image):
     else:  # Already grayscale
         return image.astype(np.uint8)
     
-def toUint8(x):
-    return np.clip(x, 0, 255).astype(np.uint8)
+def toUint8(I):
+    return np.clip(I, 0, 255).astype(np.uint8)
 
 def toGray(image):
     """

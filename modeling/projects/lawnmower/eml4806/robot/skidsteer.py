@@ -1,11 +1,8 @@
 from dataclasses import dataclass
 import numpy as np
 
-import eml4806.geometry.vector as vector
-
 from eml4806.geometry.transform import Transform
-from eml4806.graphics.style import Style, Stroke, Fill, pen, brush
-from eml4806.graphics.shape import Rectangle, Circle, Polyline, Group, Arrow
+from eml4806.geometry.vector import Vector, coincident
 
 @dataclass
 class Chassis:
@@ -25,7 +22,7 @@ class Motor:
 
 class Robot:
 
-    def __init__(self, workspace, position, theta, chassis, wheels, motors, blade, odometer):
+    def __init__(self, world, position, theta, chassis, wheels, motors, blade, odometer):
         # Body
         self.chassis = chassis
         self.wheels = wheels
@@ -36,7 +33,7 @@ class Robot:
         x, y = position
         self.odometer.initilize((x, y, theta))
         # Graphics
-        self._makeBody(workspace)
+        self._makeBody(world)
         # Blade control
         self.blade_position = 0 # 0 (off), 1 (high), 2 (low)
         # Debug
@@ -75,24 +72,27 @@ class Robot:
     def setBlade(self, state):
         self.blade.state = state
         
-    def _makeBody(self, workspace):
+    def _makeBody(self, world):
         # Parts
         c = self.chassis
         w = self.wheels
         b = self.blade
-        self.body   = Rectangle(workspace, (0.0, 0.0), c.length, c.width, style=brush('orange', 0.5))
-        self.wheel1 = Rectangle(workspace, (-0.5*c.wheelbase, -0.5*c.trackwidth), w.diameter, w.width, style=brush('gray', 0.5))
-        self.wheel2 = Rectangle(workspace, ( 0.5*c.wheelbase, -0.5*c.trackwidth), w.diameter, w.width, style=brush('gray', 0.5))
-        self.wheel3 = Rectangle(workspace, (-0.5*c.wheelbase,  0.5*c.trackwidth), w.diameter, w.width, style=brush('gray', 0.5))
-        self.wheel4 = Rectangle(workspace, ( 0.5*c.wheelbase,  0.5*c.trackwidth), w.diameter, w.width, style=brush('gray', 0.5))
-        self.tool   = Circle(workspace, (0.0, 0.0), 0.5*b.diameter, brush('red', 0.5))
+        self.body   = world.rectangle((0.0, 0.0), (c.length, c.width), 'orange')
+        self.wheel1 = world.rectangle((-0.5*c.wheelbase, -0.5*c.trackwidth), (w.diameter, w.width), 'gray')
+        self.wheel2 = world.rectangle(( 0.5*c.wheelbase, -0.5*c.trackwidth), (w.diameter, w.width), 'gray')
+        self.wheel3 = world.rectangle((-0.5*c.wheelbase,  0.5*c.trackwidth), (w.diameter, w.width), 'gray')
+        self.wheel4 = world.rectangle(( 0.5*c.wheelbase,  0.5*c.trackwidth), (w.diameter, w.width), 'gray')
+        self.tool   = world.circle((0.0, 0.0), 0.5*b.diameter, 'red')
         # Debug
-        self.arrow_vl = Arrow(workspace, (0.0,-0.5*c.trackwidth), (0.0, 0.0), style=brush('blue', 3.0), scaling=1.25)
-        self.arrow_vr = Arrow(workspace, (0.0, 0.5*c.trackwidth), (0.0, 0.0), style=brush('blue', 3.0), scaling=1.25)
+        self.arrow_vl = world.arrow((0.0,-0.5*c.trackwidth), (0.0, 0.0), 'blue', width=3.0, scaling=1.25)
+        self.arrow_vr = world.arrow((0.0, 0.5*c.trackwidth), (0.0, 0.0), 'blue', width=3.0, scaling=1.25)
         # Assembly
-        self.body = Group([self.body, self.wheel1, self.wheel2, self.wheel3, self.wheel4, self.tool, self.arrow_vl, self.arrow_vr])
+        self.body = world.group([self.body, 
+                                 self.wheel1, self.wheel2, self.wheel3, self.wheel4, 
+                                 self.tool, 
+                                 self.arrow_vl, self.arrow_vr])
         # Path
-        self.path = Polyline(workspace, [self.odometer.position()], style=pen('magenta'))
+        self.path = world.polyline([self.odometer.position()], 'magenta')
         # Update graphics
         self._update()
 
@@ -102,14 +102,14 @@ class Robot:
         self._updateDebug()
 
     def _updateBody(self):
-        x, y, theta = self.odometer.pose()
-        tf = Transform(position=(x, y), orientation=theta)
+        p, h = self.odometer.pose()
+        tf = Transform(translation=p, rotation=h)
         self.body.setTransform(tf)
     
     def _updatePath(self):
         position = self.odometer.position()
         last = self.path.last()
-        if not vector.coincident(position, last, tol=0.2):
+        if not coincident(position, last, tol=0.1):
             self.path.append( position )
 
     def _updateDebug(self):

@@ -5,7 +5,7 @@ from math import sin, cos
 from numpy import clip as clamp
 
 import eml4806.geometry.angle as angle
-import eml4806.geometry.vector as vector
+import eml4806.geometry.math as math
 import eml4806.geometry.pose as pose
 
 class State(Enum):
@@ -114,11 +114,11 @@ class MoveTo(Task):
         position = robot.gps()
         heading = robot.imu()
         target = pose.position(goal) - position
-        target_distance = vector.length(target)
+        target_distance = math.length(target)
 
         # Heading selection
         if target_distance > hdist: 
-            target_heading = vector.angle(target) # Point towards goal
+            target_heading = math.angle(target) # Point towards goal
         else: 
             target_heading = pose.heading(goal) # Enforce final pose heading
                         
@@ -135,11 +135,11 @@ class MoveTo(Task):
                 return State.DONE
 
         # Robot frame
-        error = vector.new(ex, ey)
+        error = math.new(ex, ey)
 
         # Polar error coordinates
-        rho = vector.length(error)
-        alpha = vector.angle(error)
+        rho = math.length(error)
+        alpha = math.angle(error)
         beta = angle.wrap( eh - alpha )
 
         # Lyapunov-based control law (saturated)

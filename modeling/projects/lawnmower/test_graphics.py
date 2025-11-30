@@ -10,18 +10,18 @@ from numpy.random import uniform as random
 
 import eml4806.sensor.keyboard as keyboard
 import eml4806.geometry.angle as angle
-import eml4806.geometry.vector as vector
-import eml4806.geometry.pose as pose
 
 import eml4806.graphics.workspace as worksapce
 import eml4806.graphics.shape as shape
 
 from eml4806.graphics.style import pen, brush
 
+from eml4806.geometry.vector import Vector, toVector, toVectors
+
 def main():
 
     menu = '''Keyboard commands
-    [m] Move
+    [m] translate
     [r] Rotate
     [s] Scale
     [ ] Reset
@@ -31,60 +31,69 @@ def main():
     xmax = 10.0
     ymin = -1.0
     ymax = 10.0
-    world = worksapce.Workspace(xmin, xmax, ymin, ymax, menu)
+
+    world = worksapce.Workspace(xmin, ymin, xmin + (xmax-xmin), ymin + (ymax-ymin), menu)
     
-    points = vector.ensure([
+    points = [
         [2.0, 2.0],
         [0.0, 3.0],
         [2.0, 8.0],
         [8.0, 4.0]
-    ])
+    ]
 
-    rectangle = shape.Rectangle(world, (1,2), 1, 2, style=brush('blue'))
-    circle = shape.Circle(world, (4, 5), 2, style=brush('orange'))
-    polyline = shape.Polyline(world, points, style=pen('red', 2), marker='o')
-    polygon = shape.Polygon(world, 2 + points, style=brush('green'))
-    point = shape.Point(world, (4, 2), style=brush('red'))
-    arrow = shape.Arrow(world, (2,1), (1,2), style=brush('magenta', 3))
-    ray = shape.Ray(world, (1,1), (2,3), style=brush('red'))
+    rectangle = world.rectangle((4,4), (1, 2),'blue')
+    circle = world.circle((4, 5), 2, 'orange')
+    polyline = world.polyline(points,'red', width=2, marker='o')
+    polygon = world.polygon(points, 'green')
+    point = world.point((4, 2), 'red')
+    arrow = world.arrow((2,1), (1,2), 'magenta', width=3)
+    ray = world.ray((1,1), (2,3), 'red')
+
+    r1 = world.rectangle((1,1), (1, 2),'pink')
+    r2 = world.rectangle((3,1), (1, 2),'pink')
+    g = world.group([r1, r2, circle])
 
     while True:
         
         key = keyboard.key()
         if key == 'q': 
             break
-        elif key == 'm':
-            polyline.move((0.1, 0.1), relative=True)
-            rectangle.move((0.1, 0.1), relative=True)
-            circle.move((0.1, 0.1), relative=True)
-            polygon.move((0.1, 0.1), relative=True)
-            point.move((0.1, 0.1), relative=True)
-            arrow.move((0.1, 0.1), relative=True)
-            ray.move((0.1, 0.1), relative=True)
+        elif key == 't':
+            rectangle.translate((0.1, 0.1), relative=True)
+            circle.translate((0.1, 0.1), relative=True)
+            polyline.translate((0.1, 0.1), relative=True)
+            polygon.translate((0.1, 0.1), relative=True)
+            point.translate((0.1, 0.1), relative=True)
+            arrow.translate((0.1, 0.1), relative=True)
+            ray.translate((0.1, 0.1), relative=True)
+            g.translate((0.1, 0.1), relative=True)
         elif key == 'r':
-            polyline.rotate(0.1, relative=True)
             rectangle.rotate(0.1, relative=True)
             circle.rotate(0.1, relative=True)
+            polyline.rotate(0.1, relative=True)
             polygon.rotate(0.1, relative=True)
             point.rotate(0.1, relative=True)
             arrow.rotate(0.1, relative=True)
             ray.rotate(0.1, relative=True)
+            g.rotate(0.1, relative=True)
         elif key == 's':
-            polyline.scale(0.9, relative=True)
             rectangle.scale(0.9, relative=True)
             circle.scale(0.9, relative=True)
+            polyline.scale(0.9, relative=True)
             polygon.scale(0.9, relative=True)
             point.scale(0.9, relative=True)
             arrow.scale(0.9, relative=True)
             ray.scale(0.9, relative=True)
+            g.scale(0.9, relative=True)
         elif key == ' ':
-            polyline.reset()
             rectangle.reset()
             circle.reset()
+            polyline.reset()
             polygon.reset()
             point.reset()
             arrow.reset()
             ray.reset()
+            g.reset()
     
         world.update()
     

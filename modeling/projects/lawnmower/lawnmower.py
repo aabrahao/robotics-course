@@ -10,7 +10,7 @@ from numpy.random import uniform as random
 
 import eml4806.sensor.keyboard as keyboard
 import eml4806.geometry.angle as angle
-import eml4806.geometry.vector as vector
+import eml4806.geometry.math as math
 import eml4806.geometry.pose as pose
 
 import eml4806.graphics.workspace as worksapce
@@ -40,7 +40,7 @@ def main():
     ymin = -1.0
     ymax = 10.0
 
-    world = worksapce.Workspace(xmin, xmax, ymin, ymax, menu)
+    world = worksapce.Workspace(xmin, ymin, xmin + (xmax-xmin), ymin + (ymax-ymin), menu)
     
     ############################################################################################################
     # Robot docking station
@@ -106,7 +106,7 @@ def main():
     ############################################################################################################
     # Missions
     
-    waypoints = vector.ensure([
+    waypoints = math.ensure([
         [2.0, 2.0],
         [0.0, 3.0],
         [2.0, 8.0],
@@ -126,9 +126,9 @@ def main():
         tasks = []
         for i in range(n):
             if i == n-1: # Last point
-                h = vector.angle(points[i] - points[i-1])
+                h = math.angle(points[i] - points[i-1])
             else: # All others
-                h = vector.angle(points[i+1] - points[i]) 
+                h = math.angle(points[i+1] - points[i]) 
             p = pose.set(points[i], h)
             tasks.append( task.MoveTo(p) )
             # Turn blade on/off
@@ -151,19 +151,19 @@ def main():
         tasks = []
         for i in range(n):
             if i == 0: # First
-                h = vector.angle(points[i+1] - points[i])
+                h = math.angle(points[i+1] - points[i])
                 p = pose.set(points[i], h)
                 tasks.append( task.MoveTo(p) )
             elif i == n-1: # Last
-                h = vector.angle(points[i] - points[i-1])
+                h = math.angle(points[i] - points[i-1])
                 p = pose.set(points[i], h)
                 tasks.append( task.MoveTo(p) )
                 tasks.append( task.MoveTo(docking + (0,0,pi)) )
             else: # All others
-                h = vector.angle(points[i] - points[i-1]) 
+                h = math.angle(points[i] - points[i-1]) 
                 p = pose.set(points[i], h)
                 tasks.append( task.MoveTo(p) )
-                h = vector.angle( points[i+1] - points[i] )
+                h = math.angle( points[i+1] - points[i] )
                 tasks.append( task.RotateTo( h ) )
         tasks.append( task.Halt() )   
         return tasks
@@ -199,7 +199,7 @@ def main():
         elif key == 'r':
             robot.reset()
             n = len(waypoints)
-            waypoints = vector.new(random(xmin, xmax, n), random(ymin, ymax, n))
+            waypoints = math.new(random(xmin, xmax, n), random(ymin, ymax, n))
             waypoints_ployline.set(waypoints)
             mission = plan(waypoints)
             scheduler.set(mission)

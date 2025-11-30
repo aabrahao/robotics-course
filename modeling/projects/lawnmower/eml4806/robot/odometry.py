@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from numpy import pi, sin, cos, clip, array
 
-import eml4806.geometry.vector as vector
+from eml4806.geometry.vector import Vector
 
 ##############################################################################################
 
@@ -20,13 +20,13 @@ class SkidDriveOdometer(ABC):
         self._w = 0.0
 
     def position(self):
-        return vector.new(self._x, self._y)
+        return Vector(self._x, self._y)
     
     def orientation(self):
         return self._theta
     
     def pose(self):
-        return array([self._x, self._y, self._theta], dtype=float)
+        return self.position(), self.orientation()
     
     def wheelVelocities(self):
         vl = self._v - (0.5*self.track_width)*self._w
