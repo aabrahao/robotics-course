@@ -37,11 +37,10 @@ from eml4806.geometry.angle import radians, wrap
 
 def main():
 
-    menu = '''Keyboard commands
-    [a] Autonomous
-    [r] Randomize
-    [d] Debug on/off
-    [q] Quit'''
+    menu = ['Commands:',
+            '[r] Randomize',
+            '[d] Debug on/off',
+            '[q] Quit']
 
     # Land
     xmin = -2.0
@@ -93,7 +92,6 @@ def main():
 
     # Graphics
     dock_point  = world.point(center=dock_position, color='magenta')
-    robot_point = world.point(center=dock_position, color='teal')
     goal_point  = world.point(center=goal_position, color='red')
     goal_arrow  = world.arrow(origin=goal_position, direction=0.8*polar(1.0,goal_heading), color='red', width=4)
     

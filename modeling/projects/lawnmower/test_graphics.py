@@ -20,13 +20,12 @@ from eml4806.geometry.vector import Vector, toVector, toVectors, join
 
 def main():
 
-    menu = '''Keyboard commands
-    [m] translate
-    [r] Rotate
-    [s] Scale
-    [ ] Reset
-    [q] Quit'''
-
+    menu = ['Commands:',
+            '[m] Translate',
+            '[r] Rotate',
+            '[s] Scale',
+            '[q] Quit']
+   
     xmin = -2.0
     xmax = 10.0
     ymin = -1.0

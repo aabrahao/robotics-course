@@ -1,72 +1,50 @@
 from eml4806.geometry.vector import Vector, toVector
 
-
 class Rectangle:
+
     """
-    Axis-aligned rectangle defined by two corners:
-        _p1 = bottom-left  (min x, min y)
-        _p2 = top-right    (max x, max y)
+    Axis-aligned rectangle defined by:
+        _position = bottom-left corner (min x, min y)
+        _size     = (width, height)
     """
 
-    __slots__ = ("_p1", "_p2")
+    __slots__ = ("_position", "_size")
 
-    def __init__(self, origin, size, centered: bool = False):
-        """
-        origin: Vector-like
-            If centered=False: bottom-left corner of the rectangle.
-            If centered=True:  center of the rectangle.
-        size: Vector-like (width, height)
-        """
-        origin = toVector(origin)
-        size = toVector(size)
-        x, y = origin
-        w, h = size
-
-        if not centered:
-            p1 = Vector(x, y)
-            p2 = Vector(x + w, y + h)
-        else:
-            # origin = center
-            p1 = Vector(x - 0.5 * w, y - 0.5 * h)
-            p2 = Vector(x + 0.5 * w, y + 0.5 * h)
-
-        self._p1 = p1
-        self._p2 = p2
+    def __init__(self, position, size):
+        self._position = toVector(position)
+        self._size = toVector(size)
         self.normalize()
 
     # -------------------------------------------------------------------------
     # Mutators
     # -------------------------------------------------------------------------
 
-    def set(self, p1, p2):
-        """Set corners from any two vector-like objects."""
-        self._p1 = toVector(p1)
-        self._p2 = toVector(p2)
+    def set(self, position, size):
+        self._position = toVector(position)
+        self._size = toVector(size)
         self.normalize()
         return self
 
     # -------------------------------------------------------------------------
-    # Corner properties
+    # Position & Size
     # -------------------------------------------------------------------------
 
     @property
-    def p1(self) -> Vector:
-        """Bottom-left corner (copy)."""
-        return Vector(self._p1)
+    def position(self) -> Vector:
+        return Vector(self._position)   # return a copy
 
-    @p1.setter
-    def p1(self, p):
-        self._p1 = toVector(p)
+    @position.setter
+    def position(self, p):
+        self._position = toVector(p)
         self.normalize()
 
     @property
-    def p2(self) -> Vector:
-        """Top-right corner (copy)."""
-        return Vector(self._p2)
+    def size(self) -> Vector:
+        return Vector(self._size)       # return a copy
 
-    @p2.setter
-    def p2(self, p):
-        self._p2 = toVector(p)
+    @size.setter
+    def size(self, s):
+        self._size = toVector(s)
         self.normalize()
 
     # -------------------------------------------------------------------------
@@ -74,76 +52,58 @@ class Rectangle:
     # -------------------------------------------------------------------------
 
     def normalize(self):
-        """
-        Ensure:
-            _p1 = (min x, min y)
-            _p2 = (max x, max y)
-        """
-        x1, y1 = self._p1
-        x2, y2 = self._p2
-        self._p1.x = min(x1, x2)
-        self._p1.y = min(y1, y2)
-        self._p2.x = max(x1, x2)
-        self._p2.y = max(y1, y2)
+        """Ensure width and height are non-negative."""
+        if self._size.x < 0:
+            self._position.x += self._size.x
+            self._size.x = -self._size.x
+
+        if self._size.y < 0:
+            self._position.y += self._size.y
+            self._size.y = -self._size.y
 
     # -------------------------------------------------------------------------
-    # Derived points
+    # Derived values
     # -------------------------------------------------------------------------
 
     def center(self) -> Vector:
-        """Return the center of the rectangle."""
-        return (self._p1 + self._p2) * 0.5
+        return self._position + 0.5 * self._size
 
-    def setCenter(self, p):
-        """Move rectangle so its center becomes p (vector-like)."""
-        c = toVector(p)
-        half_size = 0.5 * self.size()
-        self.p1 = c - half_size
-        self.p2 = c + half_size
-        # setter already normalizes
-
-    # -------------------------------------------------------------------------
-    # Dimensions
-    # -------------------------------------------------------------------------
+    def setCenter(self, c):
+        c = toVector(c)
+        w, h = self._size
+        self._position = Vector(c.x - 0.5 * w, c.y - 0.5 * h)
+        self.normalize()
 
     def width(self) -> float:
-        return self._p2.x - self._p1.x
+        return self._size.x
 
     def height(self) -> float:
-        return self._p2.y - self._p1.y
-
-    def size(self) -> Vector:
-        """Return (width, height) as a Vector."""
-        return Vector(self.width(), self.height())
+        return self._size.y
 
     def area(self) -> float:
-        return self.width() * self.height()
+        return self._size.x * self._size.y
 
     # -------------------------------------------------------------------------
     # Tests
     # -------------------------------------------------------------------------
 
-    def contains(self, p) -> bool:
-        """
-        True if a point p (vector-like) lies inside or on the boundary
-        of the rectangle.
-        """
-        p = toVector(p)
-        return (self._p1.x <= p.x <= self._p2.x and
-                self._p1.y <= p.y <= self._p2.y)
+    def contains(self, point) -> bool:
+        p = toVector(point)
+        x, y = self._position
+        w, h = self._size
+        return (x <= p.x <= x + w and
+                y <= p.y <= y + h)
 
     # -------------------------------------------------------------------------
-    # Copy / iteration / representation
+    # Copy, iteration, representation
     # -------------------------------------------------------------------------
 
     def copy(self) -> "Rectangle":
-        """Return a copy of this rectangle."""
-        return Rectangle(self._p1, self.size(), centered=False)
+        return Rectangle(self._position, self._size)
 
     def __iter__(self):
-        """Allow: p1, p2 = rect."""
-        yield Vector(self._p1)
-        yield Vector(self._p2)
+        yield Vector(self._position)
+        yield Vector(self._size)
 
     def __repr__(self):
-        return f"Rectangle({self._p1}, {self._p2})"
+        return f"Rectangle(position={self._position}, size={self._size})"

@@ -60,13 +60,15 @@ class Robot:
         if self._debug == visible:
             return
         if visible == True:
+            self._position_point.show()
             self._path.show()
-            self._arrow_vl.show()
-            self._arrow_vr.show()
+            self._vl_arrow.show()
+            self._vr_arrow.show()
         else:
+            self._position_point.hide()
             self._path.hide()
-            self._arrow_vl.hide()
-            self._arrow_vr.hide()
+            self._vl_arrow.hide()
+            self._vr_arrow.hide()
         self._debug = visible
 
     def setBlade(self, state):
@@ -89,13 +91,14 @@ class Robot:
         self.wheel4 = world.rectangle(( 0.5*wb,  0.5*tw), (wd, ww), 'gray')
         self.tool   = world.circle((0.0, 0.0), 0.5*bd, 'red')
         # Debug
-        self._arrow_vl = world.arrow((0.0,-0.5*tw), (0.0, 0.0), 'blue', width=3.0, scaling=1.25)
-        self._arrow_vr = world.arrow((0.0, 0.5*tw), (0.0, 0.0), 'blue', width=3.0, scaling=1.25)
+        self._position_point = world.point(self.gps(), 'magenta')
+        self._vl_arrow  = world.arrow((0.0,-0.5*tw), (0.0, 0.0), 'blue', width=3.0, scaling=1.25)
+        self._vr_arrow  = world.arrow((0.0, 0.5*tw), (0.0, 0.0), 'blue', width=3.0, scaling=1.25)
         # Assembly
         self.body = world.group([self.body, 
                                  self.wheel1, self.wheel2, self.wheel3, self.wheel4, 
                                  self.tool, 
-                                 self._arrow_vl, self._arrow_vr])
+                                 self._vl_arrow, self._vr_arrow])
         # Path
         self._path = world.polyline([self.odometer.position()], 'magenta')
         # Update graphics
@@ -122,5 +125,6 @@ class Robot:
     
     def _updateDebug(self):
         vl, vr = self.odometer.wheelVelocities()
-        self._arrow_vl.setDirection( (vl, 0.0) )
-        self._arrow_vr.setDirection( (vr, 0.0) )
+        self._position_point.set( self.gps() )
+        self._vl_arrow.setDirection( (vl, 0.0) )
+        self._vr_arrow.setDirection( (vr, 0.0) )

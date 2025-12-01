@@ -38,11 +38,11 @@ from eml4806.geometry.line import Line
 
 def main():
 
-    menu = '''Keyboard commands
-    [a] Autonomous
-    [r] Randomize
-    [d] Debug on/off
-    [q] Quit'''
+    menu = ['Commands:',
+            '[a] Autonomous (on/of)',
+            '[r] Randomize',
+            '[d] Debug on/off',
+            '[q] Quit']
    
     # Land
     xmin = -2.0
@@ -97,12 +97,10 @@ def main():
     track_arrow = world.arrow(origin=line.start, direction=(line.end - line.start), color='red', width = 4)
     
     # Debug algorithm
-    robot_point   = world.point(center=dock_postion, color='teal')
     goal_point    = world.point(center=(0.0, 0.0), color='teal')
     distance_line = world.line(start=(0.0, 0.0), end=(0.0, 0.0), color='teal')
     
     if not robot.debug():
-        robot_point.hide()
         goal_point.hide()
         distance_line.hide()
         
@@ -136,12 +134,10 @@ def main():
         elif key == 'd':
             if robot.debug():
                 robot.setDebug(False)
-                robot_point.hide()
                 goal_point.hide()
                 distance_line.hide()
             else:
                 robot.setDebug(True)
-                robot_point.show()
                 goal_point.show()
                 distance_line.show()
         elif key == 'r':
@@ -232,7 +228,6 @@ def main():
             w = np.clip(w, -wmax, wmax)
 
             # Updated Graphics
-            robot_point.move(robot_postion)
             goal_point.move(goal_postion)
             distance_line.set(robot_postion, goal_postion)
             

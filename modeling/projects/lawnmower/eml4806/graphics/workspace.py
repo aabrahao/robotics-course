@@ -21,7 +21,7 @@ class Workspace:
 
     """Convenience wrapper around a Matplotlib axis with shape factories."""
 
-    def __init__(self, x, y, w, h, menu=None):
+    def __init__(self, x, y, w, h, menu=None, names=None):
         """
         Initialize an interactive workspace.
         x, y : lower-left corner of visible region
@@ -34,9 +34,14 @@ class Workspace:
         self.axis.set_ylim(y, y + h)
         self.axis.set_aspect("equal", adjustable="box")
         self.axis.grid(True)
-        self.figure.suptitle(self.title())
-
-        if menu is not None:
+        # Title
+        title = self.title()
+        if names:
+            title += "\n\n" + ", ".join(names[:-1]) + f", and {names[-1]}"  
+        self.figure.suptitle(title)
+        # Menu
+        if menu:
+            menu = ", ".join(menu[:-1]) + f", and {menu[-1]}"  
             self.figure.supxlabel(menu)
             print(menu)
             print()

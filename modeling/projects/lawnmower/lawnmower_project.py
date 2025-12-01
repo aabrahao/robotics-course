@@ -14,16 +14,11 @@ Units are expressed in SI:
     - Distance in meters (m)
     - Angles in radians (rad)
     - Time in seconds (s).
-
--------------------------------------------------------------------
-
-Team:
-
-    - Name roboticist 1
-    - Name roboticist 2
-    - Name roboticist 3
-
 '''
+
+team = ['Name roboticist 1', 
+        'Name roboticist 2', 
+        'Name roboticist 3']
 
 # -------------------------------------------------------------------------
 # Modules
@@ -67,7 +62,7 @@ def randomizeWaypints(xmin, xmax, ymin, ymax, n):
     return join(x, y)
 
 # -------------------------------------------------------------------------
-# First mission
+# Mission planner
 # -------------------------------------------------------------------------
 
 def planMission1(waypoints, context):
@@ -107,10 +102,7 @@ def planMission1(waypoints, context):
     return tasks
 
 # -------------------------------------------------------------------------
-# Second mission
-# -------------------------------------------------------------------------
 
-# Mission Planner 2
 def planMission2(waypoints, context):
 
     # Enviroment variables
@@ -154,12 +146,12 @@ def planMission2(waypoints, context):
 
 def main():
 
-    menu = '''Keyboard commands
-    [r] Randomize
-    [d] Debug on/off
-    [1] Mission 1
-    [2] Mission 2
-    [q] Quit'''
+    menu = ['Commands:',
+            '[r] Randomize',
+            '[d] Debug on/off',
+            '[1] Mission 1',
+            '[2] Mission 2',
+            '[q] Quit']
 
     # -------------------------------------------------------------------------
     # World
@@ -170,7 +162,7 @@ def main():
     ymin = -1.0
     ymax = 10.0
 
-    world = Workspace(xmin, ymin, xmin + (xmax-xmin), ymin + (ymax-ymin), menu)
+    world = Workspace(xmin, ymin, xmin + (xmax-xmin), ymin + (ymax-ymin), menu, team)
     
     # -------------------------------------------------------------------------
     # Robot docking station
@@ -247,8 +239,8 @@ def main():
     # Graphics
     # -------------------------------------------------------------------------
 
-    docking_rectangle = world.rectangle(center=dock_position, size=(chassis.length, chassis.width), angle=dock_heading, color='gray')
-    docking_point     = world.point(center=dock_position, color='magenta')
+    docking_rectangle  = world.rectangle(center=dock_position, size=(chassis.length, chassis.width), angle=dock_heading, color='gray')
+    docking_point      = world.point(center=dock_position, color='gray')
     waypoints_ployline = world.polyline(waypoints, color='gray', width=2.0, marker='o')
       
     # -------------------------------------------------------------------------
