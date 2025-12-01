@@ -29,16 +29,13 @@ def main():
 
     world = worksapce.Workspace(xmin, ymin, xmin + (xmax-xmin), ymin + (ymax-ymin))
     
-    image = Map.load("eml4806/data/baboon.bmp")
-    print(image.dtype)
-    print(image.shape)
-
-    map = world.map((xmin, ymin), (xmax-xmin, ymax-ymin), image)
+    #map = world.map((xmin, ymin), (xmax-xmin, ymax-ymin), image="eml4806/data/baboon.bmp")
+    map = world.map((xmin, ymin), (xmax-xmin, ymax-ymin), pixels=1000 )
 
     x, y, w, h = map.rectangle()
     map.circle(      x,       y, 0.1*w)
-    map.circle(x+0.5*w, y+0.5*h, 0.1*w)
-    map.circle(x+0.5*w,       y, 0.1*w)
+    map.circle(x+0.5*w, y+0.5*h, 0.1*w, lambda x: 0.2*255)
+    map.circle(x+0.5*w,       y, 0.1*w, lambda x: 0.4*255)
     map.circle(    x+w,     y+h, 0.1*w)
 
     while True:

@@ -139,5 +139,5 @@ class Workspace:
     
     # Map (image visualization)
 
-    def map(self, position, size, image):
-        return Map(self, position, size, image)
+    def map(self, position, size, image=None, pixels=1000):
+        return Map(self, position, size, image, pixels)
