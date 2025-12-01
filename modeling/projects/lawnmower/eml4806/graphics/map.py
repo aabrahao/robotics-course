@@ -20,35 +20,38 @@ class Map(Rectangle):
 
     #__slots__ = ("_position", "_size")
 
-    def __init__(self, workspace, position, size, image=None, pixels=1000):
-        self._ax = workspace.axis
+    def __init__(self, workspace, position=None, size=None, image=None, pixels=1000):
+        self._ax = workspace._ax
         self._artist = None
+        # Fill workspace
+        if position is None or size is None:
+            x, y, w, h = workspace.viewport()
+            if position is None:
+                position = (x,y)
+            if size is None:
+                size = (w,h)
         super().__init__(position, size)
         self._load(image, pixels)
         self._adjust()
         self._make()
 
     def _load(self, image, pixels):
-
         # case 1 — rasterized pixels per largest length
         if image is None:
             n = pixels
-            _, _, w, h = self.viewport()
+            _, _, w, h = self.rectangle()
             (rows, cols), (width, height) = evaluateRasterBounds(w, h, n)
-            self._image = np.full((rows, cols), 255, dtype=np.uint8)
+            self._image = rasterize(rows, cols, 255)
             self._size = (width, height)
             return                
-        
         # case 2 — a file path (string)
         if isinstance(image, str):
             self._image = loadImage(image)
             return
-        
         # case 3 — already a NumPy image
         if isinstance(image, np.ndarray):
             self._image = image
             return
-
         raise TypeError(f"Unsupported image type: {type(image)}")
 
     def _make(self):
@@ -59,6 +62,12 @@ class Map(Rectangle):
         if self._artist:
             self._artist.set_data(self._image)
             self._artist.set_extent(self.extent())
+    
+    def clear(self):
+        rows = self._image.shape[0]
+        cols = self._image.shape[1]
+        self._image = rasterize(rows, cols, 255)
+        self.update()
 
     def _imageSize(self):
         h = self._image.shape[0]
@@ -101,12 +110,6 @@ class Map(Rectangle):
         s, _ = self._toPixel(r, r, map_distance=True)
         self._imageCircleMask(v, u, s, func)
 
-    def viewport(self):
-        """Actual artist rectangle"""
-        xmin, xmax = self._ax.get_xlim()
-        ymin, ymax = self._ax.get_ylim()
-        return xmin, ymin, xmax-xmin, ymax-ymin
-
     def _adjust(self):
         """
         Fits inside viewport
@@ -116,7 +119,7 @@ class Map(Rectangle):
         if wi <= 0 or hi <= 0:
             return
         # Drawing are
-        xr, yr, wr, hr = self.viewport()
+        xr, yr, wr, hr = self.rectangle()
         if wr <= 0 or hr <= 0:
             return
         # Scale

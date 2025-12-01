@@ -32,8 +32,8 @@ def evaluateRasterBounds(width: float, height: float, n: int):
 
     return (rows, cols), (width, height)
 
-def rasterize(rows: int, cols: int):
-    return np.zeros((rows, cols), dtype=np.uint8)
+def rasterize(rows: int, cols: int, value):
+    return np.full((rows, cols), value, dtype=np.uint8)
 
 def toGray8(image):
     """Convert an RGB or grayscale image array to 8-bit monochrome."""

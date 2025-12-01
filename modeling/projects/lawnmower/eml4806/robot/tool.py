@@ -11,3 +11,19 @@ class Blade:
 
     diameter : float = 0.0 # m
     state : BladeState = BladeState.OFF
+
+    def cut(self):
+        if self.state == BladeState.OFF:
+            return None
+        elif self.state == BladeState.LOW:
+            return 0.85*255
+        elif self.state == BladeState.HIGH:
+            return 0.60*255   
+        
+    def toggle(self):
+        if self.state == BladeState.OFF:
+            self.state = BladeState.LOW
+        elif self.state == BladeState.LOW:
+            self.state = BladeState.HIGH
+        elif self.state == BladeState.HIGH:
+            self.state = BladeState.OFF   

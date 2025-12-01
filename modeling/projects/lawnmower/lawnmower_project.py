@@ -148,6 +148,7 @@ def main():
 
     menu = ['Commands:',
             '[r] Randomize',
+            '[b] Blade (off/low/high)',
             '[d] Debug on/off',
             '[1] Mission 1',
             '[2] Mission 2',
@@ -275,16 +276,19 @@ def main():
 
         if key == 'q': # Quit
             break
-        elif key == 'd': # Debug mode (on/off)
-            robot.setDebug( not robot.debug() )
         elif key == 'r': # Randomize worksapce
             randomize = True
+        elif key == 'b':
+            robot.toggleBladeState()
         elif key == '1': # Change to mission 1
             plan = planMission1
             randomize = True
         elif key == '2': # Change to mission 2
             plan = planMission2
             randomize = True
+        elif key == 'd': # Debug mode (on/off)
+            robot.setDebug( not robot.debug() )
+        
 
         # Shuffle things around...
         if randomize:

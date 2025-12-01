@@ -28,8 +28,7 @@ def main():
     ymax = 10.0
 
     world = worksapce.Workspace(xmin, ymin, xmin + (xmax-xmin), ymin + (ymax-ymin))
-    
-    #map = world.map((xmin, ymin), (xmax-xmin, ymax-ymin), image="eml4806/data/baboon.bmp")
+ 
     map = world.map((xmin, ymin), (xmax-xmin, ymax-ymin), pixels=1000 )
 
     x, y, w, h = map.rectangle()

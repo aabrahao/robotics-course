@@ -23,19 +23,22 @@ class Motor:
 
 class Robot:
 
-    def __init__(self, world, position, theta, chassis, wheels, motors, blade, odometer):
+    def __init__(self, world, position, theta, chassis, wheels, motors, blade, odometer, map_tool=True):
         # Body
         self.chassis = chassis
         self.wheels = wheels
         self.motors = motors
         self.blade = blade
+        # Blade control
+        self.blade_position = BladeState.OFF # BladeState.LOW and BladeState.HIGH
         # Odometry
         self.odometer = odometer
         self.odometer.initilize(position, theta)
         # Graphics
         self._makeBody(world)
-        # Blade control
-        self.blade_position = BladeState.OFF # BladeState.LOW and BladeState.HIGH
+        # Map
+        if map_tool:
+            self._map = world.map()
         # Debug
         self._debug = True
 
@@ -52,6 +55,7 @@ class Robot:
 
     def reset(self):
         self._path.set([self.odometer.position()])
+        self._map.clear()
 
     def debug(self):
         return self._debug
@@ -70,10 +74,16 @@ class Robot:
             self._vl_arrow.hide()
             self._vr_arrow.hide()
         self._debug = visible
+    
+    def bladState(self):
+        return self.blade.state
 
     def setBlade(self, state):
         self.blade.state = state
-        
+
+    def toggleBladeState(self):
+        self.blade.toggle()
+    
     def _makeBody(self, world):
         # Parts
         cl = self.chassis.length
@@ -119,9 +129,19 @@ class Robot:
         last = self._path.last()
         if last is None: # Empty
             self._path.append(position)
+            self._updateMap(position)
             return
         if not coincident(position, last, tol=0.1): # Moved!
             self._path.append(position)
+            self._updateMap(position)
+
+    def _updateMap(self, position):
+        c = self.blade.cut()
+        if c == None:
+            return
+        x,y = position
+        r = 0.5*self.blade.diameter
+        self._map.circle(x, y, r, func=lambda x: c)
     
     def _updateDebug(self):
         vl, vr = self.odometer.wheelVelocities()

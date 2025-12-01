@@ -39,8 +39,9 @@ from eml4806.geometry.line import Line
 def main():
 
     menu = ['Commands:',
-            '[a] Autonomous (on/of)',
+            '[a] Autonomous (on/off)',
             '[r] Randomize',
+            '[b] Blade (off/low/high)',
             '[d] Debug on/off',
             '[q] Quit']
    
@@ -131,6 +132,8 @@ def main():
             autonomous = not autonomous
             v = 0.0
             w = 0.0
+        elif key == 'b':
+            robot.toggleBladeState()
         elif key == 'd':
             if robot.debug():
                 robot.setDebug(False)

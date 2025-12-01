@@ -225,9 +225,8 @@ class HaltTask(AbstractTask):
 class BladeControlTask(AbstractTask):
     
     def __init__(self, state: int) -> None:
-        positions = ["off", "low", "high"]
-        label = positions[state] if 0 <= state < len(positions) else f"state {state}"
-        super().__init__("BladeControlTask", label)
+        states = ["off", "low", "high"]
+        super().__init__("BladeControlTask", f"state: {states[state]}")
 
         # DO NOT overwrite AbstractTask.state
         self.blade_state: int = state

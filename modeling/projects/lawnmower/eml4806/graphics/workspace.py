@@ -21,7 +21,7 @@ from eml4806.graphics.style import pen, brush
 
 class Workspace:
 
-    """Convenience wrapper around a Matplotlib axis with shape factories."""
+    """Convenience wrapper around a Matplotlib _ax with shape factories."""
 
     def __init__(self, x, y, w, h, menu=None, names=None):
         """
@@ -31,11 +31,11 @@ class Workspace:
         menu : optional text shown under the title and printed to stdout
         """
         plt.ion()
-        self.figure, self.axis = plt.subplots(figsize=(10, 10))
-        self.axis.set_xlim(x, x + w)
-        self.axis.set_ylim(y, y + h)
-        self.axis.set_aspect("equal", adjustable="box")
-        self.axis.grid(True)
+        self.figure, self._ax = plt.subplots(figsize=(10, 10))
+        self._ax.set_xlim(x, x + w)
+        self._ax.set_ylim(y, y + h)
+        self._ax.set_aspect("equal", adjustable="box")
+        self._ax.grid(True)
         # Title
         title = self.title()
         if names:
@@ -47,6 +47,12 @@ class Workspace:
             self.figure.supxlabel(menu)
             print(menu)
             print()
+
+    def viewport(self):
+        """Actual artist rectangle"""
+        xmin, xmax = self._ax.get_xlim()
+        ymin, ymax = self._ax.get_ylim()
+        return xmin, ymin, xmax-xmin, ymax-ymin
 
     def title(self):
         return ("Florida International University\n"
@@ -139,5 +145,5 @@ class Workspace:
     
     # Map (image visualization)
 
-    def map(self, position, size, image=None, pixels=1000):
+    def map(self, position=None, size=None, image=None, pixels=1000):
         return Map(self, position, size, image, pixels)

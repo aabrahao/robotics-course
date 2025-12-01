@@ -99,7 +99,7 @@ class AbstractShape(AbstractDrawable):
 
     def __init__(self, workspace: 'Workspace', style, transform: Transform, renderer):
         super().__init__(transform)
-        self._ax = workspace.axis
+        self._ax = workspace._ax
         self._style = style
         self._artist = None
         self._renderer = renderer
