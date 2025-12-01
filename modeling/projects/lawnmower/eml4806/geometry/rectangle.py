@@ -1,4 +1,4 @@
-from eml4806.geometry.vector import Vector, toVector
+from eml4806.geometry.vector import Vector, toVector, toVectors
 
 class Rectangle:
 
@@ -65,6 +65,22 @@ class Rectangle:
     # Derived values
     # -------------------------------------------------------------------------
 
+    def rectangle(self):
+        x, y = self.position
+        w, h = self.size
+        return x, y, w, h
+    
+    def extent(self):
+        x, y, w, h = self.rectangle()
+        return [x, x + w, y + h, y]
+    
+    def vertices(self):
+        x, y, w, h = self.rectangle()
+        return toVectors([[  x, y],
+                          [x+w, y],
+                          [x+w, y+h],
+                          [  x, y+h]])
+
     def center(self) -> Vector:
         return self._position + 0.5 * self._size
 
@@ -107,3 +123,4 @@ class Rectangle:
 
     def __repr__(self):
         return f"Rectangle(position={self._position}, size={self._size})"
+       

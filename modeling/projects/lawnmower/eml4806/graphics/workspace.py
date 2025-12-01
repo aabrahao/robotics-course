@@ -14,6 +14,8 @@ from eml4806.graphics.shape import PolygonShape as Polygon
 
 from eml4806.graphics.shape import ArrowShape as Arrow
 
+from eml4806.graphics.map import Map
+
 from eml4806.graphics.style import pen, brush
 
 
@@ -134,3 +136,8 @@ class Workspace:
             scaling=scaling,
             magnification=magnification
         )
+    
+    # Map (image visualization)
+
+    def map(self, position, size, image):
+        return Map(self, position, size, image)
