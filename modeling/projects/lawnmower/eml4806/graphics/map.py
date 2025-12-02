@@ -9,6 +9,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.image as img
 
+from matplotlib.patches import Circle
+
 from eml4806.geometry.vector import Vector, toVector, split
 from eml4806.geometry.angle import wrap
 
@@ -16,13 +18,14 @@ from eml4806.geometry.rectangle import Rectangle
 
 from eml4806.graphics.utilities import loadImage, toGray8, evaluateRasterBounds, rasterize
 
-class Map(Rectangle):
+##########################################################################
 
-    #__slots__ = ("_position", "_size")
+class RasterMap(Rectangle):
+
+    __slots__ = ("_workspace", "_artist", "_image")
 
     def __init__(self, workspace, position=None, size=None, image=None, pixels=1000):
-        self._ax = workspace._ax
-        self._artist = None
+        self._workspace = workspace
         # Fill workspace
         if position is None or size is None:
             x, y, w, h = workspace.viewport()
@@ -54,9 +57,14 @@ class Map(Rectangle):
             return
         raise TypeError(f"Unsupported image type: {type(image)}")
 
+    def _ax(self):
+        return self._workspace._ax
+    
     def _make(self):
         x, y, w, h = self.rectangle()
-        self._artist = self._ax.imshow(self._image, cmap='gray', vmin=0, vmax=255, origin='upper', extent=[x, x+w, y+h, y] )
+        self._artist = self._ax().imshow(self._image, cmap='gray', 
+                                         vmin=0, vmax=255, 
+                                         origin='upper', extent=[x, x+w, y+h, y])
 
     def update(self):
         if self._artist:
@@ -75,7 +83,7 @@ class Map(Rectangle):
         return w, h
         
     def _toPixel(self, x, y, map_distance=False):
-        """Map world coordinates (x, y) to pixel indices (u, v)"""
+        """RasterMap world coordinates (x, y) to pixel indices (u, v)"""
         wi, hi = self._imageSize()
         xr, yr, wr, hr = self.rectangle()
         if map_distance:
@@ -86,7 +94,7 @@ class Map(Rectangle):
         return u, v # (col, row)
 
     def _fromPixel(self, u, v, map_distance=False):
-        """Map pixel indices (u, v) back to world coordinates (x, y)."""
+        """RasterMap pixel indices (u, v) back to world coordinates (x, y)."""
         wi, hi = self._imageSize()
         xr, yr, wr, hr = self.rectangle()
         if map_distance:
@@ -96,19 +104,19 @@ class Map(Rectangle):
         y = yr + v / (hi - 1)*hr
         return x, y
     
-    def _imageCircleMask(self, u, v, r, func):
+    def _imageCircleMask(self, u, v, r, value):
         """Circle mask in pixel (w,v), r"""
         m = self._image
         rows, cols = m.shape
         y, x = np.ogrid[:rows, :cols]
         mask = (y - u)**2 + (x - v)**2 <= r**2
-        m[mask] = func( m[mask] )
+        m[mask] = value
         self.update()
         
-    def circle(self, x, y, r, func=lambda x: 0.5*x):
+    def circle(self, x, y, r, value):
         u, v = self._toPixel(x, y)
         s, _ = self._toPixel(r, r, map_distance=True)
-        self._imageCircleMask(v, u, s, func)
+        self._imageCircleMask(v, u, s, value)
 
     def _adjust(self):
         """
@@ -132,3 +140,37 @@ class Map(Rectangle):
         h = hi*scale
         self._size = (w, h)
   
+  ##########################################################################
+
+class VectorMap:
+
+    __slots__ = ("_workspace", "_artists")
+
+    def __init__(self, workspace):
+        self._workspace = workspace
+        self._artists = []
+
+    def _ax(self):
+        return self._workspace._ax
+    
+    def update(self):
+        pass
+    
+    def clear(self):
+        for artist in self._artists:
+            artist.remove()
+        self._artists.clear()
+
+    def color(self, value): # uint8 to RGB
+        g = value/255
+        return (g,g,g)
+    
+    def zorder(self, value):
+        return -(value + 10)
+
+    def circle(self, x, y, r, value):
+        circle = Circle((x, y), r, color=self.color(value), zorder=self.zorder(value))
+        self._ax().add_patch( circle )
+        # Remember
+        self._artists.append( circle )
+        

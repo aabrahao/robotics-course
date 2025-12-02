@@ -141,8 +141,8 @@ class Robot:
             return
         x,y = position
         r = 0.5*self.blade.diameter
-        self._map.circle(x, y, r, func=lambda x: c)
-    
+        self._map.circle(x, y, r, c)
+   
     def _updateDebug(self):
         vl, vr = self.odometer.wheelVelocities()
         self._position_point.set( self.gps() )

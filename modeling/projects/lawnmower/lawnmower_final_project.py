@@ -52,20 +52,17 @@ from eml4806.task.context import Context
 from eml4806.task.task import MoveToTask, RotateToTask, WaitTask, BladeControlTask, HaltTask
 from eml4806.task.executor import Executor
 
+from eml4806.robot.lawn import generateLawn
+
 # -------------------------------------------------------------------------
 # Utility functions
 # -------------------------------------------------------------------------
-
-def randomizeWaypints(xmin, xmax, ymin, ymax, n):
-    x = random(1.1*xmin, 0.9*xmax, n)
-    y = random(1.1*ymin, 0.9*ymax, n)
-    return join(x, y)
 
 # -------------------------------------------------------------------------
 # Mission planner
 # -------------------------------------------------------------------------
 
-def planMission1(waypoints, context):
+def planMission1(lawn, context):
     
     # Enviroment variables
     dock_position = context.dock_position
@@ -73,72 +70,32 @@ def planMission1(waypoints, context):
     tool_diameter = context.robot.blade.diameter
 
     # Motion planner
-    points = toVectors(waypoints)
+    points = toVectors(lawn)
     n = len(points)
     if n < 2:
         return []
         
     tasks = []
     for i in range(n):
-
-        if i == n-1: # Last point
-            h = angle(points[i] - points[i-1])
-        else: # All others
-            h = angle(points[i+1] - points[i]) 
-            
-        p = points[i]
-        tasks.append( MoveToTask(p, h) )
-            
-        # Turn blade on/off
-        if i % 2 == 0: # Even index!
-            tasks.append( BladeControlTask(BladeState.LOW) )
-        else: # Odd index
-            tasks.append( BladeControlTask(BladeState.OFF) )
-        
+        pass
+                
     # Dock
     tasks.append( MoveToTask(dock_position, dock_heading + pi) )
     tasks.append( HaltTask() )
 
     return tasks
 
-# -------------------------------------------------------------------------
-
-def planMission2(waypoints, context):
-
+def planMission2(lawn, context):
+    
     # Enviroment variables
     dock_position = context.dock_position
     dock_heading = context.dock_heading
     tool_diameter = context.robot.blade.diameter
 
-    # Motion planner
-    
-    points = toVectors(waypoints)
-    n = len(points)
-    if n < 2:
-        return []
-
     tasks = []
-    for i in range(n):
 
-        if i == 0: # First
-            h = angle(points[i+1] - points[i])
-            p = points[i]
-            tasks.append( MoveToTask(p, h) )
-        elif i == n-1: # Last
-            h = angle(points[i] - points[i-1])
-            p = points[i]
-            tasks.append( MoveToTask(p, h) )
-            tasks.append( MoveToTask(dock_position, dock_heading + pi) )
-        else: # All others
-            h = angle(points[i] - points[i-1]) 
-            p = points[i]
-            tasks.append( MoveToTask(p, h) )
-            h = angle( points[i+1] - points[i] )
-            tasks.append( RotateToTask( h ) )
-        
-    tasks.append( HaltTask() )   
-        
     return tasks
+
 
 # =============================================================================
 # Simulation
@@ -226,15 +183,12 @@ def main():
     wmax = radians(60.0) # rad/s
     
     # -------------------------------------------------------------------------
-    # Missions
+    # Lawn
     # -------------------------------------------------------------------------
     
-    waypoints = toVectors([
-        [2.0, 2.0],
-        [0.0, 3.0],
-        [2.0, 8.0],
-        [6.0, 4.0]
-    ])
+    n = 4
+    border = 0.2
+    lawn = generateLawn(xmin, ymin, (xmax-xmin), (ymax-ymin), border, n)
 
     # -------------------------------------------------------------------------
     # Graphics
@@ -242,7 +196,7 @@ def main():
 
     docking_rectangle  = world.rectangle(center=dock_position, size=(chassis.length, chassis.width), angle=dock_heading, color='gray')
     docking_point      = world.point(center=dock_position, color='gray')
-    waypoints_ployline = world.polyline(waypoints, color='gray', width=2.0, marker='o')
+    lawn_ployline      = world.polyline(lawn, color='gray', width=2, marker='o', closed=True)
       
     # -------------------------------------------------------------------------
     # Task executer
@@ -257,7 +211,7 @@ def main():
     context.dock_heading = dock_heading
 
     # Plan mission
-    mission = plan(waypoints, context)
+    mission = plan(lawn, context)
 
     # Schedule
     exercuter = Executor(context, mission)
@@ -289,14 +243,13 @@ def main():
         elif key == 'd': # Debug mode (on/off)
             robot.setDebug( not robot.debug() )
         
-
         # Shuffle things around...
         if randomize:
             robot.reset()
-            n = len(waypoints)
-            waypoints = randomizeWaypints(xmin, xmax, ymin, ymax, n)
-            waypoints_ployline.set(waypoints)
-            mission = plan(waypoints, context)
+            n = len(lawn)
+            lawn = generateLawn(xmin, ymin, (xmax-xmin), (ymax-ymin), border, n)
+            lawn_ployline.set(lawn)
+            mission = plan(lawn, context)
             exercuter.set(mission)
             randomize = False
 

@@ -14,7 +14,7 @@ from eml4806.graphics.shape import PolygonShape as Polygon
 
 from eml4806.graphics.shape import ArrowShape as Arrow
 
-from eml4806.graphics.map import Map
+from eml4806.graphics.map import RasterMap, VectorMap
 
 from eml4806.graphics.style import pen, brush
 
@@ -100,12 +100,13 @@ class Workspace:
 
     # Stroked shapes (use pen → color + width)
     
-    def polyline(self, points, color="C3", width: float = 1.0, marker=None):
+    def polyline(self, points, color="C3", width: float = 1.0, marker=None, closed=False):
         return Polyline(
             self,
             edges=points,
             style=pen(color=color, width=width),
-            marker=marker
+            marker=marker,
+            closed=closed
         )
 
     def line(self, start, end, color="C4", width: float = 1.0):
@@ -145,5 +146,6 @@ class Workspace:
     
     # Map (image visualization)
 
-    def map(self, position=None, size=None, image=None, pixels=1000):
-        return Map(self, position, size, image, pixels)
+    def map(self, position=None, size=None, image=None, pixels=500):
+        #return RasterMap(self, position, size, image, pixels)
+        return VectorMap(self)

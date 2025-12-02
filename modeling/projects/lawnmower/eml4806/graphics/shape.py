@@ -234,6 +234,11 @@ class PolygonShape(AbstractShape):
         self._points = []
         self._updateGeometry()
 
+    def first(self) -> Vector | None:
+        if not self._points:
+            return None
+        return self._points[0]
+
     def last(self) -> Vector | None:
         if not self._points:
             return None
@@ -248,9 +253,17 @@ class PolygonShape(AbstractShape):
 
 class PolylineShape(PolygonShape):
 
-    def __init__(self, workspace, edges=[], style=pen(), marker=None, renderer=PlotRenderer()):
+    def __init__(self, workspace, edges=[], style=pen(), marker=None, renderer=PlotRenderer(), closed=False):
         self._marker = marker
+        self._closed = closed
         super().__init__(workspace, edges, style, renderer)
+
+    def _geometry(self):
+        points = self._points
+        first = self.first()
+        if self._closed and first is not None:
+            points.append( first )
+        return points
 
 # ---------------------------------------------------------------------------
 # LineShape
@@ -259,6 +272,7 @@ class PolylineShape(PolygonShape):
 class LineShape(PolylineShape):
 
     def __init__(self, workspace, start, end, style=pen()):
+
         super().__init__(workspace, [start, end], style)
 
     def set(self, start, end):
