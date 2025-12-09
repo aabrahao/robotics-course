@@ -69,21 +69,51 @@ def planMission1(lawn, context):
     dock_heading = context.dock_heading
     tool_diameter = context.robot.blade.diameter
 
+    # -------------------------------------------------------------------------
+    # TODO: STUDENTS — IMPLEMENT YOUR SCAN-PATTERN FUNCTION HERE
+    # -------------------------------------------------------------------------
+    #
+    # Replace the placeholder line below with a call to your function:
+    #     waypoints = planScanGrid(lawn)
+    #
+    # Your function should take the lawn polygon (4 corners or a general polygon)
+    # and return the ordered list of scan waypoints.
+    #
+    # CURRENTLY this is just a temporary placeholder:
+
+    waypoints = lawn     # ← Replace this with: waypoints = planScanGrid(lawn)
+    
+    # -------------------------------------------------------------------------
+
     # Motion planner
-    points = toVectors(lawn)
+    points = toVectors(waypoints)
     n = len(points)
     if n < 2:
         return []
         
     tasks = []
     for i in range(n):
-        pass
-                
+
+        if i == n-1: # Last point
+            h = angle(points[i] - points[i-1])
+        else: # All others
+            h = angle(points[i+1] - points[i]) 
+            
+        p = points[i]
+        tasks.append( MoveToTask(p, h) )
+            
+        # Turn blade on/off
+        if i % 2 == 0: # Even index!
+            tasks.append( BladeControlTask(BladeState.LOW) )
+        else: # Odd index
+            tasks.append( BladeControlTask(BladeState.OFF) )
+        
     # Dock
     tasks.append( MoveToTask(dock_position, dock_heading + pi) )
     tasks.append( HaltTask() )
 
     return tasks
+
 
 def planMission2(lawn, context):
     
