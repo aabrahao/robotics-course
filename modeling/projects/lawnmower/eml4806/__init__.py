@@ -1,4 +1,4 @@
-version = "0.0.9"
+version = "0.1.1"
 
 print("=" * 50)
 print("Florida International University")

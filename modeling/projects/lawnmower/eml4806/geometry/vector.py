@@ -262,19 +262,39 @@ def toVector(v) -> Vector:
     except Exception:
         raise TypeError(f"Expected a Vector-like object, got {v!r}")
 
+import numpy as np
+
 def toVectors(obj):
     """
     Convert a single vector-like object or an iterable of such objects
     into a list of Vector instances.
-    Examples:
-        toVectors((1,2))              -> [Vector(1,2)]
-        toVectors([ (1,2), (3,4) ])   -> [Vector(1,2), Vector(3,4)]
-        toVectors(Vector(1,2))        -> [Vector(1,2)]
+
+    Accepts:
+        • Vector
+        • (x,y) tuple
+        • [ (x,y), ... ]
+        • np.array([x,y])
+        • np.array([[x1,y1],[x2,y2],...])
     """
-    # Single object
+    # --- NumPy array support ---------------------------------------------
+    if isinstance(obj, np.ndarray):
+        arr = np.asarray(obj)
+
+        # Case: shape (2,) → single vector
+        if arr.ndim == 1 and arr.size == 2:
+            return [toVector(arr)]
+
+        # Case: shape (N,2) → list of vectors
+        if arr.ndim == 2 and arr.shape[1] == 2:
+            return [toVector(row) for row in arr]
+
+        raise TypeError(f"NumPy array must have shape (2,) or (N,2), got {arr.shape}")
+
+    # --- Single object (Vector-like) -------------------------------------
     if not isinstance(obj, (list, tuple)):
         return [toVector(obj)]
-    # Iterable of objects
+
+    # --- Iterable of objects ---------------------------------------------
     return [toVector(o) for o in obj]
 
 # -----------------------------------------------------------------------------
