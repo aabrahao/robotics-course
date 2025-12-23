@@ -1,457 +1,216 @@
-from __future__ import annotations
-from typing import Union, Iterable
-
 import numpy as np
 import math
 
-Number = Union[int, float]
+# Pre-binding for micro-optimizations
+_sqrt = math.sqrt
+_cos = math.cos
+_sin = math.sin
+_atan2 = math.atan2
+_acos = math.acos
 
-class Vector:
-    """
-    Strict 2D float vector (x, y) behaving like a mathematical vector.
-    Fully interoperable with NumPy.
+# =============================================================================
+# VECTOR CREATION
+# =============================================================================
 
-    Valid constructors:
-        Vector()                -> (0.0, 0.0)
-        Vector(x, y)            -> two numeric scalars
-        Vector([x, y])          -> sequence of length 2
-        Vector((x, y))
-        Vector(np.array([x, y]))
-        Vector(other_vector)
-        Vector(point_like)      -> object with numeric .x and .y
+def vector(*args) -> np.ndarray:
+    """Fast-path entry: returns input if already (3,) float64 ndarray."""
+    if len(args) == 1:
+        v = args[0]
+        if type(v) is np.ndarray and v.shape == (3,) and v.dtype == np.float64:
+            return v
+        arr = np.asarray(v, dtype=np.float64).ravel()
+        if arr.size == 3: return arr
+        if arr.size == 2: return np.array([arr[0], arr[1], 0.0], dtype=np.float64)
+        raise ValueError(f"Vector size {arr.size} invalid.")
+    if len(args) == 0:
+        return np.zeros(3, dtype=np.float64)
+    if len(args) == 3: return np.array(args, dtype=np.float64)
+    if len(args) == 2: return np.array([args[0], args[1], 0.0], dtype=np.float64)
+    raise TypeError("vector() takes 0, 1, 2, or 3 arguments")
 
-    Invalid:
-        Vector(0)
-        Vector(1)
-        Vector([1])
-        Vector([])
-        Vector(None)
-    """
+# =============================================================================
+# COORDINATE SYSTEMS
+# =============================================================================
 
-    __slots__ = ("_data",)
+def polar(r: float, theta: float) -> np.ndarray:
+    """Create 3D vector (z=0) from 2D polar coordinates."""
+    return np.array([r * _cos(theta), r * _sin(theta), 0.0], dtype=np.float64)
 
-    # ---------------------------
-    # CONSTRUCTOR
-    # ---------------------------
+def spherical(r: float, theta: float, phi: float) -> np.ndarray:
+    """Create 3D vector from spherical (radial r, azimuth theta, inclination phi)."""
+    sin_phi = _sin(phi)
+    return np.array([
+        r * sin_phi * _cos(theta),
+        r * sin_phi * _sin(theta),
+        r * _cos(phi)
+    ], dtype=np.float64)
 
-    def __init__(self, *args):
-        # CASE 0: Vector() -> zero vector
-        if len(args) == 0:
-            self._data = np.array([0.0, 0.0], dtype=float)
-            return
-        # CASE 1: Vector(x, y)
-        if len(args) == 2:
-            x, y = args
-            if not isinstance(x, (int, float)) or not isinstance(y, (int, float)):
-                raise TypeError("Vector(x, y) requires numeric values")
-            self._data = np.array([float(x), float(y)], dtype=float)
-            return
-        # CASE 2: Vector(arg)
-        if len(args) == 1:
-            arg = args[0]
-            if arg is None:
-                raise TypeError("Vector(None) is not allowed")
-            # Vector(existing Vector)
-            if isinstance(arg, Vector):
-                self._data = np.array([arg.x, arg.y], dtype=float)
-                return
-            # Vector(point_like)
-            if hasattr(arg, "x") and hasattr(arg, "y"):
-                xv, yv = arg.x, arg.y
-                if isinstance(xv, (int, float)) and isinstance(yv, (int, float)):
-                    self._data = np.array([float(xv), float(yv)], dtype=float)
-                    return
-                raise TypeError("Point-like object must have numeric x and y")
-            # Vector(sequence of length 2)
-            if isinstance(arg, Iterable) and not isinstance(arg, (str, bytes)):
-                vals = list(arg)
-                if len(vals) != 2:
-                    raise ValueError("Iterable must have exactly 2 numeric values")
-                if not all(isinstance(v, (int, float)) for v in vals):
-                    raise TypeError("Iterable values must be numeric")
-                self._data = np.array([float(vals[0]), float(vals[1])], dtype=float)
-                return
-            # Single numeric NOT allowed
-            if isinstance(arg, (int, float)):
-                raise TypeError("Vector(x) with a single numeric is not allowed")
-            raise TypeError("Invalid argument for Vector constructor")
-        raise TypeError("Vector constructor takes 0, 1, or 2 arguments")
+# =============================================================================
+# OPTIMIZED PRIMITIVES (Raw Arithmetic)
+# =============================================================================
 
-    # ---------------------------
-    # INTERNAL HELPER
-    # ---------------------------
+def dot(v1: np.ndarray, v2: np.ndarray) -> float:
+    return v1[0]*v2[0] + v1[1]*v2[1] + v1[2]*v2[2]
 
-    @staticmethod
-    def _to_vector(other) -> "Vector":
-        """Convert any vector-like object into a Vector."""
-        if isinstance(other, Vector):
-            return other
-        if hasattr(other, "x") and hasattr(other, "y"):
-            xv, yv = other.x, other.y
-            if isinstance(xv, (int, float)) and isinstance(yv, (int, float)):
-                return Vector(xv, yv)
-        if isinstance(other, Iterable) and not isinstance(other, (str, bytes)):
-            vals = list(other)
-            if len(vals) == 2 and all(isinstance(v, (int, float)) for v in vals):
-                return Vector(vals[0], vals[1])
-        if isinstance(other, (int, float)):
-            raise TypeError("Single numeric value cannot be converted to Vector")
-        raise TypeError(f"Cannot convert {other!r} to Vector")
+def cross(v1: np.ndarray, v2: np.ndarray) -> np.ndarray:
+    return np.array([
+        v1[1]*v2[2] - v1[2]*v2[1],
+        v1[2]*v2[0] - v1[0]*v2[2],
+        v1[0]*v2[1] - v1[1]*v2[0]
+    ], dtype=np.float64)
 
-    # ---------------------------
-    # UNPACKING SUPPORT
-    # ---------------------------
+def triple_product(a: np.ndarray, b: np.ndarray, c: np.ndarray) -> float:
+    """a · (b x c)"""
+    return a[0]*(b[1]*c[2]-b[2]*c[1]) + a[1]*(b[2]*c[0]-b[0]*c[2]) + a[2]*(b[0]*c[1]-b[1]*c[0])
 
-    def __iter__(self):
-        yield self.x
-        yield self.y
+# =============================================================================
+# BASIC OPERATIONS
+# =============================================================================
 
-    # ---------------------------
-    # PROPERTIES
-    # ---------------------------
+def norm_squared(v: np.ndarray) -> float:
+    return dot(v, v)
 
-    @property
-    def x(self) -> float:
-        return float(self._data[0])
+def norm(v: np.ndarray) -> float:
+    return _sqrt(dot(v, v))
 
-    @x.setter
-    def x(self, value: Number):
-        if not isinstance(value, (int, float)):
-            raise TypeError("x must be numeric")
-        self._data[0] = float(value)
+def distance_squared(v1: np.ndarray, v2: np.ndarray) -> float:
+    dx, dy, dz = v1[0]-v2[0], v1[1]-v2[1], v1[2]-v2[2]
+    return dx*dx + dy*dy + dz*dz
 
-    @property
-    def y(self) -> float:
-        return float(self._data[1])
+def distance(v1: np.ndarray, v2: np.ndarray) -> float:
+    return _sqrt(distance_squared(v1, v2))
 
-    @y.setter
-    def y(self, value: Number):
-        if not isinstance(value, (int, float)):
-            raise TypeError("y must be numeric")
-        self._data[1] = float(value)
+def unit(v: np.ndarray, epsilon: float = 1e-10) -> np.ndarray:
+    n = norm(v)
+    if n < epsilon: raise ValueError("Null vector")
+    return v / n
 
-    @property
-    def data(self) -> np.ndarray:
-        return self._data
+# =============================================================================
+# 2D SPECIFIC OPERATIONS (XY-Plane)
+# =============================================================================
 
-    # ---------------------------
-    # NUMPY INTEROPERABILITY
-    # ---------------------------
+def cross2d(v1: np.ndarray, v2: np.ndarray) -> float:
+    """Z-component of cross product (signed area/orientation)."""
+    return v1[0]*v2[1] - v1[1]*v2[0]
 
-    __array_priority__ = 100.0
-
-    def __array__(self, dtype=None):
-        return np.asarray(self._data, dtype=dtype)
-
-    def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
-        raw = [v._data if isinstance(v, Vector) else v for v in inputs]
-        result = getattr(ufunc, method)(*raw, **kwargs)
-
-        if isinstance(result, np.ndarray) and result.ndim == 1 and result.size == 2:
-            return Vector(result[0], result[1])
-
-        if isinstance(result, tuple):
-            return tuple(
-                Vector(r[0], r[1])
-                if isinstance(r, np.ndarray) and r.ndim == 1 and r.size == 2
-                else r
-                for r in result
-            )
-
-        return result
-
-    # ---------------------------
-    # ARITHMETIC
-    # ---------------------------
-    
-    def __add__(self, other):
-        try:
-            v = self._to_vector(other)
-        except TypeError:
-            return NotImplemented
-        r = self._data + v._data
-        return Vector(r[0], r[1])
-
-    def __radd__(self, other):
-        return self.__add__(other)
-
-    def __sub__(self, other):
-        try:
-            v = self._to_vector(other)
-        except TypeError:
-            return NotImplemented
-        r = self._data - v._data
-        return Vector(r[0], r[1])
-
-    def __rsub__(self, other):
-        v = self._to_vector(other)
-        r = v._data - self._data
-        return Vector(r[0], r[1])
-
-    def __mul__(self, scalar: Number):
-        if not isinstance(scalar, (int, float)):
-            return NotImplemented
-        r = self._data * float(scalar)
-        return Vector(r[0], r[1])
-
-    __rmul__ = __mul__
-
-    def __truediv__(self, scalar: Number):
-        if not isinstance(scalar, (int, float)):
-            raise TypeError("Scalar must be numeric")
-        r = self._data / float(scalar)
-        return Vector(r[0], r[1])
-
-    # ---------------------------
-    # VECTOR MATH
-    # ---------------------------
-
-    def dot(self, other: "Vector") -> float:
-        if not isinstance(other, Vector):
-            raise TypeError("dot() requires a Vector")
-        return float(self._data @ other._data)
-
-    def cross(self, other: "Vector") -> float:
-        if not isinstance(other, Vector):
-            raise TypeError("cross() requires a Vector")
-        return float(self.x * other.y - self.y * other.x)
-
-    def norm(self) -> float:
-        return float(np.linalg.norm(self._data))
-
-    def normalized(self) -> "Vector":
-        n = self.norm()
-        if n == 0:
-           return self
-        return self / n
-
-    # ---------------------------
-    # NEW MATHEMATICAL OPERATORS
-    # ---------------------------
-    
-    def __neg__(self):
-        return Vector(-self.x, -self.y)
-
-    def __eq__(self, other):
-        try:
-            v = self._to_vector(other)
-        except TypeError:
-            return False
-        return self.x == v.x and self.y == v.y
-
-    def __abs__(self):
-        """abs(v) == v.norm()"""
-        return self.norm()
-
-    # ---------------------------
-    # REPR
-    # ---------------------------
-    
-    def __repr__(self):
-        return f"Vector({self.x}, {self.y})"
-
-
-# -----------------------------------------------------------------------------
-# INTERNAL: type enforcement
-# -----------------------------------------------------------------------------
-
-def toVector(v) -> Vector:
-    """Convert any vector-like object into a Vector or raise TypeError."""
-    try:
-        return Vector._to_vector(v)
-    except Exception:
-        raise TypeError(f"Expected a Vector-like object, got {v!r}")
-
-import numpy as np
-
-def toVectors(obj):
-    """
-    Convert a single vector-like object or an iterable of such objects
-    into a list of Vector instances.
-
-    Accepts:
-        • Vector
-        • (x,y) tuple
-        • [ (x,y), ... ]
-        • np.array([x,y])
-        • np.array([[x1,y1],[x2,y2],...])
-    """
-    # --- NumPy array support ---------------------------------------------
-    if isinstance(obj, np.ndarray):
-        arr = np.asarray(obj)
-
-        # Case: shape (2,) → single vector
-        if arr.ndim == 1 and arr.size == 2:
-            return [toVector(arr)]
-
-        # Case: shape (N,2) → list of vectors
-        if arr.ndim == 2 and arr.shape[1] == 2:
-            return [toVector(row) for row in arr]
-
-        raise TypeError(f"NumPy array must have shape (2,) or (N,2), got {arr.shape}")
-
-    # --- Single object (Vector-like) -------------------------------------
-    if not isinstance(obj, (list, tuple)):
-        return [toVector(obj)]
-
-    # --- Iterable of objects ---------------------------------------------
-    return [toVector(o) for o in obj]
-
-# -----------------------------------------------------------------------------
-# Helpers
-# -----------------------------------------------------------------------------
-
-def split(points):
-    """
-    Convert a list of Vector-like objects into two NumPy arrays (x, y).
-    Input:
-        [Vector, (x,y), [x,y], ...]
-    Returns:
-        xs, ys   (NumPy arrays)
-    """
-    pts = [toVector(p) for p in points]
-    xs = np.array([p.x for p in pts], dtype=float)
-    ys = np.array([p.y for p in pts], dtype=float)
-    return xs, ys
-
-def join(xs, ys):
-    """
-    Convert x and y sequences into a list of Vector objects.
-    Input:
-        xs, ys  (same length)
-        xs[i], ys[i] form Vector(xs[i], ys[i])
-    Returns:
-        list[Vector]
-    """
-    if len(xs) != len(ys):
-        raise ValueError("xs and ys must have the same length")
-    return [Vector(x, y) for x, y in zip(xs, ys)]
-
-# -----------------------------------------------------------------------------
-# BASIC GEOMETRIC OPERATIONS
-# -----------------------------------------------------------------------------
-
-def length(v):
-    """Return the Euclidean norm of vector v."""
-    v = toVector(v)
-    return v.norm()
-
-def distance(v1, v2):
-    """Return the Euclidean distance between v1 and v2."""
-    v1, v2 = toVector(v1), toVector(v2)
-    return (v1 - v2).norm()
-
-def angle(v1, v2=None):
-    """Compute the absolute angle of v1 or the signed angle from v1 to v2."""
-    v1 = toVector(v1)
-    if v2 is None:
-        return math.atan2(v1.y, v1.x)
-    v2 = toVector(v2)
-    return math.atan2(cross(v1, v2), dot(v1, v2))
-
-def coincident(v1, v2, tol: float = 1e-2):
-    """Return True if v1 and v2 are within tol distance."""
-    v1, v2 = toVector(v1), toVector(v2)
-    dx = v1.x - v2.x
-    dy = v1.y - v2.y
-    return dx * dx + dy * dy <= tol * tol
-
-def unit(v):
-    """Return the unit (normalized) vector in the same direction as v."""
-    v = toVector(v)
-    return v.normalized()
-
-def perpendicular(v, clockwise=False):
-    """Return a perpendicular vector to v (clockwise or counterclockwise)."""
-    v = toVector(v)
+def perpendicular2d(v: np.ndarray, clockwise: bool = False) -> np.ndarray:
+    """90° rotation in the XY plane."""
     if clockwise:
-        return Vector(v.y, -v.x)
-    return Vector(-v.y, v.x)
+        return np.array([v[1], -v[0], 0.0], dtype=np.float64)
+    return np.array([-v[1], v[0], 0.0], dtype=np.float64)
 
-def dot(v1, v2):
-    return v1.dot(v2)
+# =============================================================================
+# ANGLES & ROTATIONS
+# =============================================================================
 
-def cross(v1, v2):
-    return v1.cross(v2)
+def angle(v1: np.ndarray, v2: np.ndarray = None) -> float:
+    """Polar angle (1 arg) or signed relative angle (2 args)."""
+    if v2 is None: return _atan2(v1[1], v1[0])
+    return _atan2(cross2d(v1, v2), dot(v1, v2))
 
-# -----------------------------------------------------------------------------
-# VECTOR ALGEBRA
-# -----------------------------------------------------------------------------
+def angle_between(v1: np.ndarray, v2: np.ndarray, epsilon: float = 1e-10) -> float:
+    """Unsigned 3D angle [0, π]."""
+    m1m2 = norm(v1) * norm(v2)
+    if m1m2 < epsilon: raise ValueError("Zero vector angle")
+    return _acos(np.clip(dot(v1, v2) / m1m2, -1.0, 1.0))
 
-def dot(v1, v2):
-    """Return the dot product v1 · v2."""
-    v1, v2 = toVector(v1), toVector(v2)
-    return v1.dot(v2)
+def rotate_x(v: np.ndarray, theta: float) -> np.ndarray:
+    c, s = _cos(theta), _sin(theta)
+    return np.array([v[0], c*v[1] - s*v[2], s*v[1] + c*v[2]], dtype=np.float64)
 
-def cross(v1, v2):
-    """Return the 2D scalar cross product (z-component)."""
-    v1, v2 = toVector(v1), toVector(v2)
-    return v1.cross(v2)
+def rotate_y(v: np.ndarray, theta: float) -> np.ndarray:
+    c, s = _cos(theta), _sin(theta)
+    return np.array([c*v[0] + s*v[2], v[1], -s*v[0] + c*v[2]], dtype=np.float64)
 
-def is_zero(v, tol: float = 1e-9):
-    """Return True if |v| <= tol."""
-    v = toVector(v)
-    return v.norm() <= tol
+def rotate_z(v: np.ndarray, theta: float) -> np.ndarray:
+    c, s = _cos(theta), _sin(theta)
+    return np.array([c*v[0] - s*v[1], s*v[0] + c*v[1], v[2]], dtype=np.float64)
 
-# -----------------------------------------------------------------------------
-# PROJECTIONS & DECOMPOSITIONS
-# -----------------------------------------------------------------------------
+def rotate2d(v: np.ndarray, theta: float) -> np.ndarray:
+    return rotate_z(v, theta)
 
-def project(v, onto):
-    """Return the projection of vector v onto vector onto."""
-    v, onto = toVector(v), toVector(onto)
-    denom = onto.norm() ** 2
-    if denom == 0:
-        raise ValueError("Cannot project onto zero vector")
-    return onto * (dot(v, onto) / denom)
+def rotate_axis(v: np.ndarray, axis: np.ndarray, theta: float) -> np.ndarray:
+    """Rodrigues' rotation formula."""
+    k = unit(axis)
+    c, s = _cos(theta), _sin(theta)
+    return v*c + cross(k, v)*s + k*dot(k, v)*(1.0-c)
 
-def reject(v, onto):
-    """Return the rejection of v from onto (component orthogonal to onto)."""
-    v, onto = toVector(v), toVector(onto)
+# =============================================================================
+# PROJECTIONS & GEOMETRY
+# =============================================================================
+
+def project(v: np.ndarray, onto: np.ndarray, epsilon: float = 1e-10) -> np.ndarray:
+    d2 = dot(onto, onto)
+    if d2 < epsilon: raise ValueError("Project onto zero")
+    return onto * (dot(v, onto) / d2)
+
+def reject(v: np.ndarray, onto: np.ndarray) -> np.ndarray:
+    """Perpendicular component of v relative to onto."""
     return v - project(v, onto)
 
-def reflect(v, normal):
-    """Reflect vector v across a line through the origin with normal."""
-    v, normal = toVector(v), toVector(normal)
-    denom = normal.norm() ** 2
-    if denom == 0:
-        raise ValueError("Cannot reflect across zero normal")
-    factor = 2 * dot(v, normal) / denom
-    return v - normal * factor
+def decompose(v: np.ndarray, onto: np.ndarray):
+    """Returns (parallel, perpendicular) components."""
+    p = project(v, onto)
+    return p, v - p
 
-# -----------------------------------------------------------------------------
-# LENGTH CONTROL & INTERPOLATION
-# -----------------------------------------------------------------------------
+def reflect(v: np.ndarray, normal: np.ndarray) -> np.ndarray:
+    """Reflect v across a surface with given normal."""
+    return v - project(v, normal) * 2.0
 
-def clamp(v, max_len: float):
-    """Clamp the magnitude of v to a maximum length."""
-    v = toVector(v)
-    n = v.norm()
-    if n == 0 or n <= max_len:
-        return Vector(v)
-    return v * (max_len / n)
+# =============================================================================
+# INTERPOLATION & CONTROL
+# =============================================================================
 
-def lerp(v1, v2, t: float):
-    """Return the linear interpolation between v1 and v2 by factor t."""
-    v1, v2 = toVector(v1), toVector(v2)
-    return (1 - t) * v1 + t * v2
+def clamp(v: np.ndarray, max_len: float) -> np.ndarray:
+    n2 = dot(v, v)
+    if n2 <= max_len * max_len: return v.copy()
+    return v * (max_len / _sqrt(n2))
 
-def midpoint(v1, v2):
-    """Return the midpoint between v1 and v2."""
-    v1, v2 = toVector(v1), toVector(v2)
-    return lerp(v1, v2, 0.5)
+def set_magnitude(v: np.ndarray, new_mag: float, epsilon: float = 1e-10) -> np.ndarray:
+    n = norm(v)
+    if n < epsilon: raise ValueError("Zero vector magnitude")
+    return v * (new_mag / n)
 
-# -----------------------------------------------------------------------------
-# ROTATION / POLAR
-# -----------------------------------------------------------------------------
+def lerp(v1: np.ndarray, v2: np.ndarray, t: float) -> np.ndarray:
+    return v1 + (v2 - v1) * t
 
-def rotate(v, theta: float):
-    """Return vector v rotated by theta radians counterclockwise."""
-    v = toVector(v)
-    c = math.cos(theta)
-    s = math.sin(theta)
-    return Vector(c * v.x - s * v.y, s * v.x + c * v.y)
+def midpoint(v1: np.ndarray, v2: np.ndarray) -> np.ndarray:
+    return (v1 + v2) * 0.5
 
-def polar(r: float, theta: float):
-    """Create a vector from polar coordinates (r, theta)."""
-    return Vector(r * math.cos(theta), r * math.sin(theta))
+def slerp(v1: np.ndarray, v2: np.ndarray, t: float, epsilon: float = 1e-10) -> np.ndarray:
+    """Spherical linear interpolation."""
+    n1, n2 = norm(v1), norm(v2)
+    if n1 < epsilon or n2 < epsilon: return lerp(v1, v2, t)
+    u1, u2 = v1/n1, v2/n2
+    dot_val = np.clip(dot(u1, u2), -1.0, 1.0)
+    omega = _acos(dot_val)
+    if omega < 1e-6: return lerp(v1, v2, t)
+    sin_o = _sin(omega)
+    return (u1 * (_sin((1-t)*omega)/sin_o) + u2 * (_sin(t*omega)/sin_o)) * lerp(n1, n2, t)
+
+# =============================================================================
+# ALIASES & CHECKS
+# =============================================================================
+
+def is_zero(v: np.ndarray, tol: float = 1e-9) -> bool:
+    return dot(v, v) <= tol * tol
+
+def coincident(v1: np.ndarray, v2: np.ndarray, tol: float = 1e-2) -> bool:
+    return distance_squared(v1, v2) <= tol * tol
+
+def is_parallel(v1: np.ndarray, v2: np.ndarray, tol: float = 1e-6) -> bool:
+    u1, u2 = unit(v1), unit(v2)
+    return abs(abs(dot(u1, u2)) - 1.0) < tol
+
+def is_perpendicular(v1: np.ndarray, v2: np.ndarray, tol: float = 1e-6) -> bool:
+    return abs(dot(v1, v2)) < tol
+
+resize = set_magnitude
+mag = magnitude = norm
+dist = distance
+normalize = unit
+rotate = rotate2d
+is_null = is_zero
+parallel_component = project
+perpendicular_component = reject
+perp2d = perpendicular2d
