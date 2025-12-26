@@ -1,4 +1,9 @@
-from eml4806.geometry.vector import Vector, toVector
+import numpy as np
+from eml4806.geometry.vector import vector, norm, norm_squared
+
+Vector = np.ndarray
+
+_PI = np.pi
 
 class Circle:
 
@@ -15,7 +20,7 @@ class Circle:
     # -------------------------------------------------------------------------
 
     def __init__(self, center, radius: float):
-        self._center = toVector(center)
+        self._center = vector(center)
         self._radius = float(radius)
         if self._radius < 0:
             raise ValueError("Radius must be non-negative")
@@ -27,16 +32,16 @@ class Circle:
     @property
     def center(self) -> Vector:
         """Return the center as a copy."""
-        return Vector(self._center)
+        return self._center.copy()
 
     @center.setter
     def center(self, c):
-        self._center = toVector(c)
+        self._center = vector(c)
 
     @property
     def radius(self) -> float:
         """Return the radius."""
-        return float(self._radius)
+        return self._radius
 
     @radius.setter
     def radius(self, r: float):
@@ -53,10 +58,10 @@ class Circle:
         return 2.0 * self._radius
 
     def area(self) -> float:
-        return 3.141592653589793 * self._radius * self._radius
+        return _PI * self._radius * self._radius
 
     def perimeter(self) -> float:
-        return 2.0 * 3.141592653589793 * self._radius
+        return 2.0 * _PI * self._radius
 
     # -------------------------------------------------------------------------
     # Transform-like operations
@@ -64,17 +69,17 @@ class Circle:
 
     def move(self, v):
         """Translate the circle by a vector-like displacement."""
-        self._center = self._center + toVector(v)
+        self._center = self._center + vector(v)
         return self
 
     def setCenter(self, c):
         """Set the center (vector-like)."""
-        self._center = toVector(c)
+        self._center = vector(c)
         return self
 
     def setRadius(self, r):
         """Set the radius."""
-        self.radius = r
+        self.radius = float(r)
         return self
 
     # -------------------------------------------------------------------------
@@ -85,13 +90,13 @@ class Circle:
         """
         True if point p (vector-like) lies inside or on the circle.
         """
-        p = toVector(p)
-        return (p - self._center).norm() <= self._radius
+        p = vector(p)
+        return norm_squared(p - self._center) <= self._radius*self._radius
 
     def distanceToCenter(self, p) -> float:
         """Euclidean distance from the circle's center to p."""
-        p = toVector(p)
-        return (p - self._center).norm()
+        p = vector(p)
+        return norm(p - self._center)
 
     def distanceToBoundary(self, p) -> float:
         """
@@ -109,7 +114,7 @@ class Circle:
         if not isinstance(other, Circle):
             raise TypeError("Expected a Circle")
 
-        d = (other._center - self._center).norm()
+        d = norm(other._center - self._center)
         return d <= (self._radius + other._radius)
 
     def intersectionType(self, other: "Circle") -> str:
@@ -121,7 +126,7 @@ class Circle:
           - 'internally tangent'
           - 'inside' (one inside the other)
         """
-        d = (other._center - self._center).norm()
+        d = norm(other._center - self._center)
         r1 = self._radius
         r2 = other._radius
 
@@ -145,8 +150,8 @@ class Circle:
 
     def __iter__(self):
         """Allow: center, radius = circle."""
-        yield Vector(self._center)
-        yield float(self._radius)
+        yield self._center
+        yield self._radius
 
     def __repr__(self):
         return f"Circle(center={self._center}, radius={self._radius})"

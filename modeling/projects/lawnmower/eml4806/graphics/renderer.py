@@ -1,8 +1,10 @@
+import numpy as np
+
 from abc import ABC, abstractmethod
 
-from matplotlib.patches import FancyArrowPatch as ArrowPatch
+from eml4806.geometry.vector import vector, vectors, split
 
-from eml4806.geometry.vector import Vector, toVector, toVectors, split
+Vector = np.ndarray
 
 ###############################################################
 
@@ -15,11 +17,11 @@ class AbstractRenderer(ABC):
         pass
 
     @abstractmethod
-    def updateGeometry(self, shape, vertices):
+    def update_geometry(self, shape, vertices):
         pass
 
     @abstractmethod
-    def updateStyle(self, shape):
+    def update_style(self, shape):
         pass
 
 ###############################################################
@@ -29,17 +31,17 @@ class PlotRenderer(AbstractRenderer):
     def make(self, shape):
         shape._artist = shape._ax.plot([], [])[0]
 
-    def updateGeometry(self, shape, vertices):
-        vertices = toVectors(vertices)
-        if not vertices: 
+    def update_geometry(self, shape, vertices):
+        vertices = vectors(vertices)
+        if vertices.size == 0: 
             shape._artist.set_data([], [])
         else:
-            x, y = split(vertices) 
+            x, y, _ = split(vertices) 
             shape._artist.set_data(x, y)
 
-    def updateStyle(self, shape):
+    def update_style(self, shape):
         s = shape._style
-        if s.hasStroke():
+        if s.has_stroke():
             shape._artist.set_color(s.stroke.color)
             shape._artist.set_linewidth(s.stroke.width)
         if shape._marker is not None:
@@ -55,18 +57,18 @@ class FillRenderer(AbstractRenderer):
     def make(self, shape):
         shape._artist = shape._ax.fill([], [])[0]
 
-    def updateGeometry(self, shape, vertices):
-        vertices = toVectors(vertices)
-        if not vertices: 
+    def update_geometry(self, shape, vertices):
+        vertices = vectors(vertices)
+        if vertices.size == 0: 
             shape._artist.set_xy([])
         else: 
-            shape._artist.set_xy(vertices)
+            shape._artist.set_xy(vertices[:, :2])
 
-    def updateStyle(self, shape):
+    def update_style(self, shape):
         s = shape._style
-        if s.hasFill():
+        if s.has_fill():
             shape._artist.set_facecolor(s.fill.color)
-        if s.hasStroke():
+        if s.has_stroke():
             shape._artist.set_edgecolor(s.stroke.color)
             shape._artist.set_linewidth(s.stroke.width)
         shape._artist.set_alpha(s.opacity)
@@ -76,24 +78,28 @@ class FillRenderer(AbstractRenderer):
 class ArrowRenderer(AbstractRenderer):
 
     def make(self, shape):
-        shape._artist = ArrowPatch(
-            posA=(0.0, 0.0),
-            posB=(0.0, 0.0),
-            arrowstyle="->",
-            mutation_scale=shape._magnification,
-        )
-        shape._ax.add_patch(shape._artist)
+        shape._artist = shape._ax.annotate('', xy=(0, 0), xytext=(0, 0), 
+            arrowprops=dict(
+                facecolor=None,
+                edgecolor=None,
+                #width=4,       # Thickness of the tail in points
+                #headwidth=12,  # Width of the head in points
+                #headlength=15, # Length of the head in points
+                shrink=0       # Ensures the arrow touches the exact coordinates
+            ))
 
-    def updateGeometry(self, shape, points):
-        x1,y1 = points[0]
-        x2,y2 = points[1]
-        shape._artist.set_positions((x1, y1), (x2, y2))
+    def update_geometry(self, shape, points):
+        x1, y1, _ = points[0]
+        x2, y2, _ = points[1]
+        shape._artist.xy = (x2, y2)
+        shape._artist.set_position((x1, y1))
 
-    def updateStyle(self, shape):
+    def update_style(self, shape):
         s = shape._style
-        if s.hasFill():
-            shape._artist.set_facecolor(s.fill.color)
-        if s.hasStroke():
-            shape._artist.set_edgecolor(s.stroke.color)
-            shape._artist.set_linewidth(s.stroke.width)
-        shape._artist.set_alpha(s.opacity)
+        if s.has_fill():
+            shape._artist.arrow_patch.set_facecolor(s.fill.color)
+            shape._artist.arrow_patch.set_edgecolor(s.fill.color)
+        if s.has_stroke():
+            shape._artist.arrow_patch.set_edgecolor(s.stroke.color)
+            shape._artist.arrow_patch.set_linewidth(s.stroke.width)
+        shape._artist.arrow_patch.set_alpha(s.opacity)

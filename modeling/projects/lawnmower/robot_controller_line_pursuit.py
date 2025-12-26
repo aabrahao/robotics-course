@@ -24,7 +24,7 @@ from enum import Enum
 from numpy import sin, cos, pi
 from numpy.random import uniform as random
 
-from eml4806.sensor.keyboard import key as readKeyboard
+from eml4806.sensor.keyboard import key as read_heyboard
 
 from eml4806.graphics.workspace import Workspace
 
@@ -32,7 +32,7 @@ from eml4806.robot.skidsteer import Robot, Chassis, Wheel, Motor
 from eml4806.robot.tool import Blade
 from eml4806.robot.odometry import AnalyticalSkidDriveOdometer
 
-from eml4806.geometry.vector import Vector, length, angle, unit, polar, dot, cross
+from eml4806.geometry.vector import vector, angle, unit, polar, dot, cross2d, norm
 from eml4806.geometry.angle import radians, wrap
 from eml4806.geometry.line import Line
 
@@ -54,39 +54,44 @@ def main():
     world = Workspace(xmin, ymin, xmin + (xmax-xmin), ymin + (ymax-ymin), menu)
 
     # Robot dock_postion station
-    dock_postion = Vector(0.0, 0.0)
+    dock_postion = vector(0.0, 0.0)
     dock_heading = radians(10.0)
 
     # Robot physics
     # ClearPath Husky A200 Ground Platform
     # https://docs.clearpathrobotics.com/docs_robots/outdoor_robots/husky/a200/user_manual_husky/
 
-    chassis = Chassis()
-    chassis.length = 0.812  # m
-    chassis.width = 0.421  # m
-    chassis.wheelbase = 0.512  # m
-    chassis.trackwidth = 0.550  # m
+    chassis = Chassis(
+        length = 0.812,
+        width = 0.421,
+        wheelbase = 0.512,
+        trackwidth = 0.550
+    )
 
-    wheels = Wheel()
-    wheels.diameter = 0.330  # m
-    wheels.width = 0.114  # m
+    wheels = Wheel(
+        diameter = 0.330,
+        width = 0.114
+    )
 
-    motors = Motor()
-    motors.maximum_angular_velocity = 5.45  # rad/s (~52 rpm maximum)
+    motors = Motor(
+        maximum_angular_velocity = 5.45
+    )
     
-    blade = Blade()
-    blade.diameter = 0.9 * chassis.width  # m
+    blade = Blade(
+        diameter = 0.9 * chassis.width
+    )
 
-    odometer = AnalyticalSkidDriveOdometer()
-    odometer.track_width = chassis.trackwidth
-    odometer.maximum_linear_velocity = None # 1.0  # m/s
-    odometer.maximum_angular_velocity = None # 3.5  # rad/s
+    odometer = AnalyticalSkidDriveOdometer(
+        track_width = chassis.trackwidth,
+        maximum_linear_velocity = None, # 1.0  # m/s
+        maximum_angular_velocity = None # 3.5  # rad/s
+    )
 
     # Simulated robot
     robot = Robot(world, dock_postion, dock_heading, chassis, wheels, motors, blade, odometer)
 
     # Settings    
-    robot.setDebug(False)
+    robot.set_debug(False)
     autonomous = False
 
     # Track line
@@ -123,7 +128,7 @@ def main():
 
     while True:
             
-        key = readKeyboard()
+        key = read_heyboard()
 
         # Commands inside the microntroller
         if key == 'q':
@@ -136,16 +141,16 @@ def main():
             robot.toggleBladeState()
         elif key == 'd':
             if robot.debug():
-                robot.setDebug(False)
+                robot.set_debug(False)
                 goal_point.hide()
                 distance_line.hide()
             else:
-                robot.setDebug(True)
+                robot.set_debug(True)
                 goal_point.show()
                 distance_line.show()
         elif key == 'r':
-            line.start = Vector(random(1.1*xmin, 0.9*xmax), random(1.1*ymin, 0.9*ymax))
-            line.end = Vector(random(1.1*xmin, 0.9*xmax), random(1.1*ymin, 0.9*ymax))
+            line.start = vector(random(1.1*xmin, 0.9*xmax), random(1.1*ymin, 0.9*ymax))
+            line.end = vector(random(1.1*xmin, 0.9*xmax), random(1.1*ymin, 0.9*ymax))
             track_arrow.set(origin=line.start, direction=(line.end - line.start))
             track_line.set(start=line.start, end=line.end)
             v = 0.0
@@ -187,7 +192,7 @@ def main():
             # Chassis geometry
             l = chassis.trackwidth
 
-            # PID controller: cross track + robot_heading control
+            # PID controller: cross-track + robot_heading control
             kp = 2.0
             ki = 0.00
             kd = 0.00
@@ -201,10 +206,10 @@ def main():
 
             # Cross-track error: signed distance from robot to the desired shape.Line
             goal_postion = line.closest(robot_postion)
-            error_distance = length(goal_postion - robot_postion)
+            error_distance = norm(goal_postion - robot_postion)
             
             # Cross-track error signal
-            if cross(goal_postion - robot_postion, line.end - line.start) > 0.0:
+            if cross2d(goal_postion - robot_postion, line.end - line.start) > 0.0:
                 error_distance = -error_distance
 
             # robot_heading error: difference between desired robot_heading and robot robot_heading

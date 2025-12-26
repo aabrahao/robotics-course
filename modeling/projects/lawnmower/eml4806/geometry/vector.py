@@ -214,3 +214,50 @@ is_null = is_zero
 parallel_component = project
 perpendicular_component = reject
 perp2d = perpendicular2d
+
+# =============================================================================
+# Vectors
+# =============================================================================
+
+def vectors(*args) -> np.ndarray:
+    """Normalize inputs to (N,3) float64. Optimized for (N,3) ndarray."""
+    n = len(args)
+    if n == 1:
+        v = args[0]
+        # Fastest path: already (N,3) float64
+        if type(v) is np.ndarray and v.ndim == 2 and v.shape[1] == 3 and v.dtype == np.float64:
+            return v
+        if v is None: return np.empty((0, 3), dtype=np.float64)
+        
+        arr = np.atleast_1d(np.asarray(v, dtype=np.float64))
+        if arr.size == 0: return np.empty((0, 3), dtype=np.float64)
+        
+        # Reshape or pad 1D/2D inputs
+        if arr.ndim == 1:
+            if arr.size == 3: return arr.reshape(1, 3)
+            if arr.size == 2: return np.concatenate([arr, [0.0]]).reshape(1, 3)
+        elif arr.ndim == 2:
+            if arr.shape[1] == 3: return arr
+            if arr.shape[1] == 2: 
+                return np.column_stack([arr, np.zeros(len(arr))])
+        raise ValueError(f"Invalid shape {arr.shape}")
+
+    if n == 0: return np.empty((0, 3), dtype=np.float64)
+    
+    # 2 or 3 arg: Coordinate stacking using broadcasting
+    try:
+        xyz = args if n == 3 else (*args, 0.0)
+        return np.column_stack(np.broadcast_arrays(*xyz)).astype(np.float64)
+    except:
+        raise ValueError("Coordinate shapes must match.")
+
+def split(data: np.ndarray) -> tuple:
+    """Unpack (N,3) into X, Y, Z via Transpose view."""
+    v = data if (type(data) is np.ndarray and data.shape[-1] == 3) else vectors(data)
+    return v.T  # Unpacks automatically if used as x, y, z = split(d)
+
+def append(data: np.ndarray, item) -> np.ndarray:
+    return np.concatenate((data, vectors(item)), axis=0)
+
+def prepend(data: np.ndarray, item) -> np.ndarray:
+    return np.concatenate((vectors(item), data), axis=0)

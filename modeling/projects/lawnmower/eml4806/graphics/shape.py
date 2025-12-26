@@ -3,13 +3,16 @@ from abc import ABC, abstractmethod
 import numpy as np
 
 from eml4806.geometry.transform import Transform
-from eml4806.geometry.vector import Vector, toVector, toVectors, angle, length, polar, unit
+from eml4806.geometry.vector import vector, vectors, unit, append
 from eml4806.geometry.angle import wrap
 
 from eml4806.graphics.style import pen, brush
 from eml4806.graphics.renderer import PlotRenderer, FillRenderer, ArrowRenderer
 
 from numpy import sin, cos, pi
+
+Vector = np.ndarray
+Vectors = np.ndarray
 
 # ---------------------------------------------------------------------------
 # Abstract base: Drawable with a Transform
@@ -19,55 +22,57 @@ class AbstractDrawable(ABC):
 
     """Base drawable object with a local Transform and optional parent."""
 
+    __slots__ = ('_transform', '_parent')
+
     def __init__(self, transform: Transform, parent=None):
-        self._transform = transform.clone()
+        self._transform = transform.copy()
         self._parent = parent
 
     def position(self) -> Vector:
         return self._transform.translation()
 
-    def setPosition(self, p):
+    def set_position(self, p):
         self._transform.translate(p)
-        self._updateGeometry()
+        self._update_geometry()
 
     def orientation(self) -> float:
         return self._transform.rotation()
 
-    def setOrientation(self, a):
+    def set_orientation(self, a):
         self._transform.rotate(a)
-        self._updateGeometry()
+        self._update_geometry()
 
     def transform(self) -> Transform:
-        return self._transform.clone()
+        return self._transform.copy()
 
-    def setTransform(self, tf: Transform):
-        self._transform = tf.clone()
-        self._updateGeometry()
+    def set_transform(self, tf: Transform):
+        self._transform = tf.copy()
+        self._update_geometry()
 
     def reset(self):
         self._transform = Transform()
-        self._updateGeometry()
+        self._update_geometry()
 
-    def move(self, p, relative: bool = False):
-        self.translate(p, relative)
+    def move(self, p: Vector, *, relative: bool = False):
+        self.translate(p, relative=relative)
 
-    def translate(self, p, relative: bool = False):
-        self._transform.translate(p, relative)
-        self._updateGeometry()
+    def translate(self, p: Vector, *, relative: bool = False):
+        self._transform.translate(p, relative=relative)
+        self._update_geometry()
 
-    def rotate(self, a, relative: bool = False):
-        self._transform.rotate(a, relative)
-        self._updateGeometry()
+    def rotate(self, r: Vector, *, relative: bool = False):
+        self._transform.rotate(r, relative=relative)
+        self._update_geometry()
 
-    def scale(self, s, relative: bool = False):
-        self._transform.scale(s, relative)
-        self._updateGeometry()
+    def scale(self, s: float, *, relative: bool = False):
+        self._transform.scale(s, relative=relative)
+        self._update_geometry()
 
-    def setParent(self, parent):
+    def set_parent(self, parent):
         self._parent = parent
 
     @abstractmethod
-    def _updateGeometry(self):
+    def _update_geometry(self):
         ...
 
 # ---------------------------------------------------------------------------
@@ -78,15 +83,17 @@ class GroupShape(AbstractDrawable):
 
     """Just a collection of Drawables that share a parent transform."""
 
-    def __init__(self, workspace: 'Workspace', shapes, transform: Transform = Transform()):
+    __slots__ = ('_shapes',)
+
+    def __init__(self, workspace, shapes, transform: Transform = Transform()):
         super().__init__(transform)
         self._shapes = list(shapes)
         for shape in self._shapes:
-            shape.setParent(self)
+            shape.set_parent(self)
 
-    def _updateGeometry(self):
+    def _update_geometry(self):
         for shape in self._shapes:
-            shape._updateGeometry()
+            shape._update_geometry()
 
 
 # ---------------------------------------------------------------------------
@@ -97,15 +104,17 @@ class AbstractShape(AbstractDrawable):
 
     """Base class for shapes that define a _geometry() method."""
 
-    def __init__(self, workspace: 'Workspace', style, transform: Transform, renderer):
+    __slots__ = ('_ax', '_style', '_artist', '_renderer')
+
+    def __init__(self, workspace, style, transform: Transform, renderer):
         super().__init__(transform)
         self._ax = workspace._ax
         self._style = style
         self._artist = None
         self._renderer = renderer
         self._make()
-        self._updateGeometry()
-        self._updateStyle()
+        self._update_geometry()
+        self._update_style()
 
     def hide(self):
         self._artist.set_visible(False)
@@ -114,22 +123,23 @@ class AbstractShape(AbstractDrawable):
         self._artist.set_visible(True)
 
     def style(self):
-        return self._style.clone()
+        return self._style.copy()
 
-    def setStyle(self, value):
-        self._style = value.clone()
-        self._updateStyle()
+    def set_style(self, value):
+        self._style = value.copy()
+        self._update_style()
 
-    def _updateGeometry(self):
+    def _update_geometry(self):
         vertices = self._geometry()
-        if not vertices:
+        # print(vertices)
+        if vertices.size == 0:
             return
         if self._parent is None:
             T = self._transform
         else:
-            T = Transform.compound(self._parent._transform, self._transform)
+            T = self._parent._transform @ self._transform
         vertices = T.apply(vertices)
-        self._renderer.updateGeometry(self, vertices)
+        self._renderer.update_geometry(self, vertices)
 
     @abstractmethod
     def _geometry(self):
@@ -138,9 +148,8 @@ class AbstractShape(AbstractDrawable):
     def _make(self):
         self._renderer.make(self)
 
-    def _updateStyle(self):
-        self._renderer.updateStyle(self)
-
+    def _update_style(self):
+        self._renderer.update_style(self)
 
 # ---------------------------------------------------------------------------
 # RectangleShape
@@ -148,35 +157,37 @@ class AbstractShape(AbstractDrawable):
 
 class RectangleShape(AbstractShape):
 
+    __slots__ = ('_size', '_angle')
+
     def __init__(self, workspace, center, size, angle=0.0, style=brush()):
-        self._size = toVector(size)
+        self._size = vector(size)
         angle = wrap(angle)
         super().__init__(
             workspace,
             style,
-            transform=Transform(translation=center, rotation=angle),
+            transform=Transform(translation=center, rotation=vector(0, 0, angle)),
             renderer=FillRenderer()
         )
 
     def set(self, center, size):
-        self.setCenter(center)
-        self.setSize(size)
+        self.set_center(center)
+        self.set_size(size)
 
-    def setCenter(self, center):
+    def set_center(self, center):
         self.translate(center, relative=False)
 
-    def setSize(self, size):
-        self._size = toVector(size)
-        self._updateGeometry()
+    def set_size(self, size):
+        self._size = vector(size)
+        self._update_geometry()
 
     def _geometry(self):
-        w, h = 0.5*self._size
-        return [
-            Vector(-w, -h),
-            Vector(+w, -h),
-            Vector(+w, +h),
-            Vector(-w, +h)
-        ]
+        w, h, _ = 0.5 * self._size
+        return vectors([
+            [-w, -h],
+            [+w, -h],
+            [+w, +h],
+            [-w, +h]
+        ])
 
 # ---------------------------------------------------------------------------
 # CircleShape
@@ -184,8 +195,10 @@ class RectangleShape(AbstractShape):
 
 class CircleShape(AbstractShape):
 
-    def __init__(self, workspace, center, radious, style=brush()):
-        self._radious = float(radious)
+    __slots__ = ('_radius',)
+
+    def __init__(self, workspace, center, radius, style=brush()):
+        self._radius = float(radius)
         super().__init__(
             workspace,
             style,
@@ -193,21 +206,23 @@ class CircleShape(AbstractShape):
             renderer=FillRenderer()
         )
 
-    def set(self, center, radious):
-        self.setCenter(center)
-        self.setRadious(radious)
+    def set(self, center, radius):
+        self.set_center(center)
+        self.set_radius(radius)
 
-    def setCenter(self, center):
+    def set_center(self, center):
         self.translate(center)
 
-    def setRadious(self, radious):
-        self._radious = float(radious)
-        self._updateGeometry()
+    def set_radius(self, radius):
+        self._radius = float(radius)
+        self._update_geometry()
 
     def _geometry(self):
-        r = self._radious
+        r = self._radius
         a = np.linspace(0.0, 2 * pi, 72, endpoint=False)
-        return [Vector(r * cos(t), r * sin(t)) for t in a]
+        x = r * cos(a)
+        y = r * sin(a)
+        return vectors(x, y)
 
 # ---------------------------------------------------------------------------
 # PolygonShape & PolylineShape
@@ -215,45 +230,51 @@ class CircleShape(AbstractShape):
 
 class PolygonShape(AbstractShape):
 
-    def __init__(self, workspace, edges=[], style=brush(), renderer=FillRenderer()):
-        self._points = toVectors(edges)
+    __slots__ = ('_points',)
+
+    def __init__(self, workspace, edges=None, style=brush(), renderer=FillRenderer()):
+        if edges is None:
+            edges = []
+        self._points = vectors(edges)
         super().__init__(workspace, style, Transform(), renderer)
 
     def set(self, edges):
-        self.setPoints(edges)
+        self.set_points(edges)
 
-    def points(self) -> list[Vector]:
+    def points(self) -> Vectors:
         """Return a copy of the internal points list."""
-        return [Vector(p) for p in self._points]
+        return self._points
 
-    def setPoints(self, edges):
-        self._points = toVectors(edges)
-        self._updateGeometry()
+    def set_points(self, edges):
+        self._points = vectors(edges)
+        self._update_geometry()
 
     def clear(self):
-        self._points = []
-        self._updateGeometry()
+        self._points = vectors()
+        self._update_geometry()
 
     def first(self) -> Vector | None:
-        if not self._points:
+        if self._points.size == 0:
             return None
         return self._points[0]
 
     def last(self) -> Vector | None:
-        if not self._points:
+        if self._points.size == 0:
             return None
         return self._points[-1]
 
     def append(self, edges):
-        self._points.extend(toVectors(edges))
-        self._updateGeometry()
+        self._points = append(self._points, edges)
+        self._update_geometry()
 
     def _geometry(self):
         return self._points
 
 class PolylineShape(PolygonShape):
 
-    def __init__(self, workspace, edges=[], style=pen(), marker=None, renderer=PlotRenderer(), closed=False):
+    __slots__ = ('_marker', '_closed')
+
+    def __init__(self, workspace, edges=None, style=pen(), marker=None, renderer=PlotRenderer(), closed=False):
         self._marker = marker
         self._closed = closed
         super().__init__(workspace, edges, style, renderer)
@@ -262,7 +283,7 @@ class PolylineShape(PolygonShape):
         points = self._points
         first = self.first()
         if self._closed and first is not None:
-            points.append( first )
+            points = append(points, first)
         return points
 
 # ---------------------------------------------------------------------------
@@ -272,17 +293,16 @@ class PolylineShape(PolygonShape):
 class LineShape(PolylineShape):
 
     def __init__(self, workspace, start, end, style=pen()):
-
         super().__init__(workspace, [start, end], style)
 
     def set(self, start, end):
         super().set([start, end])
 
-    def setStart(self, start):
+    def set_start(self, start):
         self.set([start, self._points[1]])
 
-    def setEnd(self, start):
-        self.set([self._points[0], start])
+    def set_end(self, end):
+        self.set([self._points[0], end])
 
 # ---------------------------------------------------------------------------
 # PointShape (as a single-vertex PolylineShape)
@@ -294,7 +314,7 @@ class PointShape(PolylineShape):
         super().__init__(workspace, [center], style=style, marker='o')
 
     def set(self, center):
-        self.setPoints([center])
+        self.set_points([center])
 
 # ---------------------------------------------------------------------------
 # RayShape (infinite-ish line)
@@ -304,21 +324,21 @@ class RayShape(LineShape):
 
     def __init__(self, workspace, start, end, style=pen()):
         super().__init__(workspace, start, end, style)
-        self.makeInfity()
+        self.make_infinity()
 
     def set(self, start, end):
         super().set(start, end)
-        self.makeInfity()
+        self.make_infinity()
 
-    def setStart(self, start):
-        super().setStart(start)
-        self.makeInfity()
+    def set_start(self, start):
+        super().set_start(start)
+        self.make_infinity()
 
-    def setEnd(self, point):
-        super().setEnd(point)
-        self.makeInfity()
+    def set_end(self, point):
+        super().set_end(point)
+        self.make_infinity()
 
-    def makeInfity(self, big=1e9):
+    def make_infinity(self, big=1e9):
         p1 = self._points[0]
         p2 = self._points[1]
         u = unit(p2 - p1)
@@ -332,12 +352,12 @@ class RayShape(LineShape):
 
 class ArrowShape(AbstractShape):
 
-    def __init__(self, workspace, origin, direction, style=brush(),
-                 scaling=1.0, magnification=10.0):
-        self._origin = toVector(origin)
-        self._direction = toVector(direction)
+    __slots__ = ('_origin', '_direction', '_scaling', '_magnification')
+
+    def __init__(self, workspace, origin, direction, style=brush(), scaling=1.0):
+        self._origin = vector(origin)
+        self._direction = vector(direction)
         self._scaling = float(scaling)
-        self._magnification = float(magnification)
         super().__init__(
             workspace,
             style,
@@ -346,16 +366,16 @@ class ArrowShape(AbstractShape):
         )
 
     def set(self, origin, direction):
-        self.setOrigin(origin)
-        self.setDirection(direction)
+        self.set_origin(origin)
+        self.set_direction(direction)
 
-    def setOrigin(self, origin):
-        self._origin = toVector(origin)
-        self._updateGeometry()
+    def set_origin(self, origin):
+        self._origin = vector(origin)
+        self._update_geometry()
 
-    def setDirection(self, direction):
-        self._direction = toVector(direction)
-        self._updateGeometry()
+    def set_direction(self, direction):
+        self._direction = vector(direction)
+        self._update_geometry()
 
     def _geometry(self):
-        return [self._origin, self._origin + self._scaling*self._direction]
+        return vectors([self._origin, self._origin + self._scaling * self._direction])

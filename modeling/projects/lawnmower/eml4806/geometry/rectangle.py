@@ -1,4 +1,7 @@
-from eml4806.geometry.vector import Vector, toVector, toVectors
+import numpy as np
+from eml4806.geometry.vector import vector, vectors
+
+Vector = np.ndarray
 
 class Rectangle:
 
@@ -11,8 +14,8 @@ class Rectangle:
     __slots__ = ("_position", "_size")
 
     def __init__(self, position, size):
-        self._position = toVector(position)
-        self._size = toVector(size)
+        self._position = vector(position)
+        self._size = vector(size)
         self.normalize()
 
     # -------------------------------------------------------------------------
@@ -20,8 +23,8 @@ class Rectangle:
     # -------------------------------------------------------------------------
 
     def set(self, position, size):
-        self._position = toVector(position)
-        self._size = toVector(size)
+        self._position = vector(position)
+        self._size = vector(size)
         self.normalize()
         return self
 
@@ -31,20 +34,20 @@ class Rectangle:
 
     @property
     def position(self) -> Vector:
-        return Vector(self._position)   # return a copy
+        return self._position.copy()
 
     @position.setter
     def position(self, p):
-        self._position = toVector(p)
+        self._position = vector(p)
         self.normalize()
 
     @property
     def size(self) -> Vector:
-        return Vector(self._size)       # return a copy
+        return self._size.copy()
 
     @size.setter
     def size(self, s):
-        self._size = toVector(s)
+        self._size = vector(s)
         self.normalize()
 
     # -------------------------------------------------------------------------
@@ -53,22 +56,22 @@ class Rectangle:
 
     def normalize(self):
         """Ensure width and height are non-negative."""
-        if self._size.x < 0:
-            self._position.x += self._size.x
-            self._size.x = -self._size.x
-
-        if self._size.y < 0:
-            self._position.y += self._size.y
-            self._size.y = -self._size.y
+        x, y, w, h = self.rectangle()
+        if w < 0:
+            x += w
+            w = -w
+        if h < 0:
+            y += h
+            y = -h
+        self._position = vector(x, y)
+        self._size = vector(w, h)
 
     # -------------------------------------------------------------------------
     # Derived values
     # -------------------------------------------------------------------------
 
     def rectangle(self):
-        x, y = self.position
-        w, h = self.size
-        return x, y, w, h
+        return self._position[0], self._position[1], self._size[0], self._size[1]
     
     def extent(self):
         x, y, w, h = self.rectangle()
@@ -76,7 +79,7 @@ class Rectangle:
     
     def vertices(self):
         x, y, w, h = self.rectangle()
-        return toVectors([[  x, y],
+        return vectors([[  x, y],
                           [x+w, y],
                           [x+w, y+h],
                           [  x, y+h]])
@@ -85,26 +88,26 @@ class Rectangle:
         return self._position + 0.5 * self._size
 
     def setCenter(self, c):
-        c = toVector(c)
+        c = vector(c)
         w, h = self._size
-        self._position = Vector(c.x - 0.5 * w, c.y - 0.5 * h)
+        self._position = vector(c.x - 0.5 * w, c.y - 0.5 * h)
         self.normalize()
 
     def width(self) -> float:
-        return self._size.x
+        return self._size[0]
 
     def height(self) -> float:
-        return self._size.y
+        return self._size[1]
 
     def area(self) -> float:
-        return self._size.x * self._size.y
+        return self._size[0] * self._size[1]
 
     # -------------------------------------------------------------------------
     # Tests
     # -------------------------------------------------------------------------
 
     def contains(self, point) -> bool:
-        p = toVector(point)
+        p = vector(point)
         x, y = self._position
         w, h = self._size
         return (x <= p.x <= x + w and
@@ -118,8 +121,8 @@ class Rectangle:
         return Rectangle(self._position, self._size)
 
     def __iter__(self):
-        yield Vector(self._position)
-        yield Vector(self._size)
+        yield vector(self._position)
+        yield vector(self._size)
 
     def __repr__(self):
         return f"Rectangle(position={self._position}, size={self._size})"

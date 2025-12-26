@@ -1,5 +1,7 @@
-from eml4806.geometry.vector import Vector, toVector
+import numpy as np
+from eml4806.geometry.vector import vector, norm, dot, cross2d
 
+Vector = np.ndarray
 
 class Line:
     
@@ -8,8 +10,8 @@ class Line:
     __slots__ = ("_start", "_end")
 
     def __init__(self, start: Vector, end: Vector):
-        self._start = toVector(start)
-        self._end = toVector(end)
+        self._start = vector(start)
+        self._end = vector(end)
 
     # -------------------------------------------------------------------------
     # Endpoints
@@ -17,23 +19,23 @@ class Line:
 
     @property
     def start(self) -> Vector:
-        return Vector(self._start)
+        return self._start.copy()
 
     @start.setter
     def start(self, value: Vector) -> None:
-        self._start = toVector(value)
+        self._start = vector(value)
 
     @property
     def end(self) -> Vector:
-        return Vector(self._end)
+        return self._end.copy()
 
     @end.setter
     def end(self, value: Vector) -> None:
-        self._end = toVector(value)
+        self._end = vector(value)
 
     def set(self, start: Vector, end: Vector):
-        self._start = toVector(start)
-        self._end = toVector(end)
+        self._start = vector(start)
+        self._end = vector(end)
         return self
 
     # -------------------------------------------------------------------------
@@ -45,14 +47,14 @@ class Line:
         return self._end - self._start
 
     def length(self) -> float:
-        return self.vector().norm()
+        return norm(self.vector())
 
     def direction(self, tol: float = 1e-9) -> Vector:
         """Unit direction or (0,0) if degenerate."""
         v = self.vector()
         n = v.norm()
         if n <= tol:
-            return Vector(0.0, 0.0)
+            return vector(0.0, 0.0)
         return v / n
 
     def at(self, t: float) -> Vector:
@@ -66,7 +68,7 @@ class Line:
 
     def is_degenerate(self, tol: float = 1e-9) -> bool:
         v = self.vector()
-        seg_len2 = v.dot(v)
+        seg_len2 = dot(v,v)
         if seg_len2 <= tol:
             return True
         return False
@@ -77,27 +79,27 @@ class Line:
 
     def coincident(self, p: Vector, tol: float = 1e-9) -> bool:
         """Check if a point lies on the infinite line."""
-        p = toVector(p)
+        p = vector(p)
         v = self.vector()
-        seg_len2 = v.dot(v)
+        seg_len2 = dot(v,v)
         if seg_len2 <= tol:
             dist = (p - self._start).norm()
             if dist <= tol:
                 return True
             return False
         v1 = p - self._start
-        cross_val = v1.cross(v)
+        cross_val = cross2d(v1, v)
         if abs(cross_val) <= tol:
             return True
         return False
 
     def inside(self, p: Vector, tol: float = 1e-9) -> bool:
         """Check if a point lies on the finite segment."""
-        p = toVector(p)
+        p = vector(p)
         v = self.vector()
-        seg_len2 = v.dot(v)
+        seg_len2 = dot(v,v)
         if seg_len2 <= tol:
-            dist = (p - self._start).norm()
+            dist = norm(p - self._start)
             if dist <= tol:
                 return True
             return False
@@ -105,10 +107,10 @@ class Line:
         if not is_on_line:
             return False
         w = p - self._start
-        dot = v.dot(w)
-        if dot < -tol:
+        d = dot(v,w)
+        if d < -tol:
             return False
-        if dot > seg_len2 + tol:
+        if d > seg_len2 + tol:
             return False
         return True
 
@@ -120,13 +122,13 @@ class Line:
 
     def closest(self, p: Vector, infinity_line: bool = True, tol: float = 1e-9) -> Vector:
         """Closest point on the infinite line (default) or on the segment."""
-        p = toVector(p)
+        p = vector(p)
         v = self.vector()
-        seg_len2 = v.dot(v)
+        seg_len2 = dot(v,v)
         if seg_len2 <= tol:
             return self.start
         w = p - self._start
-        t = v.dot(w) / seg_len2
+        t = dot(v, w) / seg_len2
         if infinity_line:
             t_clamped = t
         else:
@@ -144,13 +146,13 @@ class Line:
         q = other._start
         s = other.vector()
 
-        r_len2 = r.dot(r)
-        s_len2 = s.dot(s)
+        r_len2 = dot(r,r)
+        s_len2 = dot(s,s)
         
         # Case 1 — Both segments are degenerate (points)
         if r_len2 <= tol and s_len2 <= tol:
             pq = p - q
-            dist = pq.norm()
+            dist = norm(pq)
             if dist <= tol:
                 return self.start
             return None
@@ -182,12 +184,12 @@ class Line:
             return None
 
         # Case 4 — Proper line–line intersection
-        rxs = r.cross(s)
+        rxs = cross2d(r,s)
         if abs(rxs) <= tol:
             return None
         qp = q - p
-        t = qp.cross(s) / rxs
-        u = qp.cross(r) / rxs
+        t = cross2d(qp,s) / rxs
+        u = cross2d(qp,r) / rxs
         if infinity_line:
             intersection_point = p + r * t
             return intersection_point
@@ -211,5 +213,5 @@ class Line:
         return f"Line({self._start!r}, {self._end!r})"
 
     def __iter__(self):
-        yield Vector(self._start)
-        yield Vector(self._end)
+        yield vector(self._start)
+        yield vector(self._end)

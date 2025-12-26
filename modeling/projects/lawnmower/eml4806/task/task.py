@@ -7,7 +7,7 @@ from typing import Any, Optional
 
 from numpy import clip as clamp
 
-from eml4806.geometry.vector import Vector, length, angle
+from eml4806.geometry.vector import vector, norm, angle
 from eml4806.geometry.angle import wrap, radians
 
 
@@ -89,8 +89,8 @@ class MoveToTask(AbstractTask):
 
     """Move to a desired pose (position + heading)."""
 
-    def __init__(self, position: Vector, heading: float, settings=MoveToTaskSettings()) -> None:
-        goal_position = Vector(position)
+    def __init__(self, position: vector, heading: float, settings=MoveToTaskSettings()) -> None:
+        goal_position = vector(position)
         goal_heading = wrap(heading)
         super().__init__("MoveToTask", f"position: {goal_position}, heading: {goal_heading:.3f}")
         self.goal_position = goal_position
@@ -105,8 +105,8 @@ class MoveToTask(AbstractTask):
         robot = context.robot
         goal_position = self.goal_position
         goal_heading = self.goal_heading
-        vmax = context.vmax
-        wmax = context.wmax
+        vmax = context.v_max
+        wmax = context.w_max
 
         k_rho = self.settings.k_rho
         k_alpha = self.settings.k_alpha
@@ -120,7 +120,7 @@ class MoveToTask(AbstractTask):
         robot_heading = robot.imu()
 
         target_position = goal_position - robot_position
-        target_distance = length(target_position)
+        target_distance = norm(target_position)
 
         # Heading selection
         if target_distance > hdist:
@@ -128,7 +128,7 @@ class MoveToTask(AbstractTask):
         else:
             target_heading = goal_heading
 
-        dx, dy = target_position
+        dx, dy, _ = target_position
 
         # Robot-frame error
         ex = cos(robot_heading) * dx + sin(robot_heading) * dy
@@ -141,8 +141,8 @@ class MoveToTask(AbstractTask):
             robot.move(0.0, 0.0, dt)
             return TaskState.DONE
 
-        error_vec = Vector(ex, ey)
-        rho = length(error_vec)
+        error_vec = vector(ex, ey)
+        rho = norm(error_vec)
         alpha = angle(error_vec)
         beta = wrap(eh - alpha)
 
@@ -190,7 +190,7 @@ class RotateToTask(AbstractTask):
     def run(self, context: Any, dt: float) -> TaskState:
         robot = context.robot
         target_heading = self.heading
-        wmax = context.wmax
+        wmax = context.w_max
 
         kp = self.settings.kp
         htol = self.settings.angle_tolerance
@@ -233,4 +233,4 @@ class BladeControlTask(AbstractTask):
 
     def cleanup(self, context: Any, dt: float) -> None:
         super().cleanup(context, dt)
-        context.robot.setBlade(self.blade_state)
+        context.robot.set_blade(self.blade_state)

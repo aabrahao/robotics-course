@@ -1,197 +1,181 @@
 import numpy as np
-
-from eml4806.geometry.vector import Vector, toVector, toVectors
+from eml4806.geometry.vector import vector, vectors
 from eml4806.geometry.angle import wrap
 
+scalar = np.isscalar
+
 class Transform:
-    """
-    2D similarity transform: translation + rotation + non-uniform scaling.
-    Internally stored as:
-        _translation: Vector   (tx, ty)
-        _rotation:    float    (radians)
-        _scaling:     Vector   (sx, sy)
-    """
 
-    def __init__(self, translation=(0.0, 0.0), rotation=0.0, scaling=(1.0, 1.0)):
-        self._translation: Vector = toVector(translation)
-        self._rotation: float     = wrap(rotation)
-        self._scaling: Vector     = toVector(scaling)
+    __slots__ = ['_translation', '_rotation', '_scaling', '_H']
 
-    # -------------------------------------------------------------------------
-    # GETTERS  (method-only API)
-    # -------------------------------------------------------------------------
-
-    def translation(self) -> Vector:
-        """Return the translation component as a Vector."""
-        return Vector(self._translation)
-
-    def rotation(self) -> float:
-        """Return the rotation angle in radians."""
-        return wrap(self._rotation)
-
-    def scaling(self) -> Vector:
-        """Return the scaling factors as a Vector."""
-        return Vector(self._scaling)
-
-    # -------------------------------------------------------------------------
-    # Mutating operations (these act as setters when relative=False)
-    # -------------------------------------------------------------------------
-
-    def translate(self, d, relative: bool = False):
-        d = toVector(d)
-        if relative:
-            self._translation = self._translation + d
-        else:
-            self._translation = d
-        return self
-
-    def rotate(self, angle, relative: bool = False):
-        angle = wrap(angle)
-        if relative:
-            self._rotation += angle
-        else:
-            self._rotation = angle
+    def __init__(self, translation=vector(), 
+                 rotation=vector(), # roll, picth, yaw!
+                 scaling=1.0,
+                 H=None):
+        self._translation = vector(translation)
+        self._rotation = vector(rotation)
         self._rotation = wrap(self._rotation)
-        return self
+        self._scaling = float(scaling)
+        self._H = H # Cached homogeneous matrix
 
-    def scale(self, s, relative: bool = False):
-        if np.isscalar(s):
-            s = Vector(s, s)
-        else:
-            s = toVector(s)
-        if relative:
-            self._scaling = Vector(self._scaling.x * s.x, self._scaling.y * s.y)
-        else:
-            self._scaling = s
-        return self
+    # --- Factories ---
 
-    # -------------------------------------------------------------------------
-    # Read-only computed values
-    # -------------------------------------------------------------------------
+    @classmethod
+    def from_matrix(cls, M: np.ndarray) -> "Transform":
+        """Decompose 4x4 homogeneous matrix into Transform."""
+        t, r, s = cls._decompose(M)
+        return cls(t, r, s, H=M.copy())
+
+    @classmethod
+    def identity(cls) -> "Transform":
+        """Create identity transform."""
+        return cls()
+
+    # --- Access Functions ---
+   
+    def translation(self) -> np.ndarray:
+        """Get translation vector (copy)."""
+        return self._translation.copy()
+
+    def rotation(self) -> np.ndarray:
+        """Get rotation angles in radians (copy)."""
+        return self._rotation.copy()
+
+    def scaling(self) -> float:
+        """Get uniform scaling factor."""
+        return self._scaling
 
     def matrix(self) -> np.ndarray:
-        """Return the 3×3 homogeneous matrix representing the transform."""
-        return Transform.to_matrix(self)
+        """Get 4x4 transformation matrix (copy)."""
+        return self._matrix().copy()
+
+    # --- Core Operations ---
+
+    def copy(self) -> "Transform":
+        """Deep copy of the transform."""
+        return Transform(self._translation, self._rotation, self._scaling, H=self._matrix())
+
+    def apply(self, points):
+        """Apply transform to points: p' = (R * S * p) + t."""
+        M = self._matrix()
+        pts = vectors(points)
+        return pts @ M[:3, :3].T + M[:3, 3]
+
+    def compose(self, other: "Transform") -> "Transform":
+        """Compose transforms: result = self @ other."""
+        self._ensure(other, "other")
+        H = self._matrix() @ other._matrix()
+        return Transform.from_matrix(H)
 
     def inverse(self) -> "Transform":
-        """Return a new Transform representing the inverse transform."""
-        return Transform.from_matrix(np.linalg.inv(self.matrix()))
+        """Compute inverse transform."""
+        H = np.linalg.inv(self._matrix())
+        return Transform.from_matrix(H)
 
-    def clone(self) -> "Transform":
-        """Return a deep copy of this transform."""
-        return Transform(
-            Vector(self._translation),
-            self._rotation,
-            Vector(self._scaling),
-        )
+    # --- Operators ---
 
-    # -------------------------------------------------------------------------
-    # Applying the transform to points
-    # -------------------------------------------------------------------------
-
-    def apply(self, points, inverse: bool = False):
+    def __matmul__(self, other):
         """
-        Apply the transform to a single point or a list of points.
-        Acceptable input:
-            - Vector / (x,y) / [x,y] / np.array([x,y])
-            - list/tuple of such objects
-        Output:
-            - Vector        if input contained 1 point
-            - list[Vector]  if input contained multiple points
+        Compose transforms or apply to points using @ operator.
+        Usage:
+            T1 @ T2        -> Compose two transforms
+            T @ point      -> Apply transform to point(s)
+            T @ points     -> Apply transform to points
         """
-        vectors = toVectors(points)
-        
-        tx = self._translation.x
-        ty = self._translation.y
-        rot = self._rotation
-        sx = self._scaling.x
-        sy = self._scaling.y
-        c = np.cos(rot)
-        s = np.sin(rot)
-        
-        results = []
-        if not inverse: # Forward
-            for p in vectors:
-                # Scale
-                x = p.x * sx
-                y = p.y * sy
-                # Rotate
-                xo = c * x - s * y
-                yo = s * x + c * y
-                # Translate
-                xo += tx
-                yo += ty
-                results.append(Vector(xo, yo))
-        else: # Inverse
-            inv_sx = 1.0 / sx
-            inv_sy = 1.0 / sy
-            for p in vectors:
-                # Untranslate
-                x = p.x - tx
-                y = p.y - ty
-                # Unrotate
-                xo = c * x + s * y
-                yo = -s * x + c * y
-                # Unscale
-                xo *= inv_sx
-                yo *= inv_sy
-                results.append(Vector(xo, yo))
-        
-        if len(results) == 1:
-            results[0]
-        
-        return results
+        if isinstance(other, Transform):
+            return self.compose(other)
+        else:
+            # Assume it's point(s)
+            return self.apply(other)
 
-    # -------------------------------------------------------------------------
-    # Class methods
-    # -------------------------------------------------------------------------
+    # --- Mutators (chainable) ---
 
-    @classmethod
-    def compound(cls, T1: "Transform", T2: "Transform") -> "Transform":
-        M = T1.matrix() @ T2.matrix() # T1 @ T2
-        return cls.from_matrix(M)
+    def translate(self, translation, relative=True):
+        """Translate transform."""
+        v = vector(translation)
+        if relative:
+            self._translation = self._translation + v
+        else:
+            self._translation = v
+        self._H = None
+        return self
 
-    @classmethod
-    def from_matrix(cls, M) -> "Transform":
-        M = np.asarray(M, dtype=float)
-        assert M.shape == (3, 3)
+    def rotate(self, rotation, *, relative=True):
+        """Rotate transform."""
+        v = vector(rotation)
+        if relative:
+            self._rotation = self._rotation + v
+        else:
+            self._rotation = v
+        self._rotation = wrap(self._rotation)
+        self._H = None
+        return self
+
+    def scale(self, s, relative=True):
+        """Scale transform uniformly."""
+        s = float(s)
+        if relative:
+            self._scaling *= s
+        else:
+            self._scaling = s
+        self._H = None
+        return self
+
+    # --- Private Implementation ---
+
+    def _matrix(self):
+        """Compute cached matrix (private internal use)."""
+        if self._H is None:
+            self._H = self._build(self._translation, self._rotation, self._scaling)
+        return self._H
+
+    @staticmethod
+    def _build(t, r, s):
+        """Build 4x4 homogeneous matrix from TRS (private)."""
+        roll, pitch, yaw = r
+        cr, sr = np.cos(roll) , np.sin(roll)
+        cp, sp = np.cos(pitch), np.sin(pitch)
+        cy, sy = np.cos(yaw)  , np.sin(yaw)
+        # R = Rz​(yaw) @ Ry​(pitch) @ Rx​(roll)
+        R = np.array([
+            [cy*cp, cy*sp*sr - sy*cr, cy*sp*cr + sy*sr],
+            [sy*cp, sy*sp*sr + cy*cr, sy*sp*cr - cy*sr],
+            [-sp,   cp*sr,            cp*cr]
+        ], dtype=t.dtype)
+        # Scaling
+        M = np.eye(4, dtype=t.dtype)
+        M[:3, :3] = R * s  # Uniform scaling
         # Translation
-        tx, ty = M[0, 2], M[1, 2]
-        # Decompose rotation * scaling (upper-left 2×2)
-        a, b = M[0, 0], M[0, 1]
-        c, d = M[1, 0], M[1, 1]
-        # Scale
-        sx = np.sqrt(a * a + c * c)
-        sy = np.sqrt(b * b + d * d)
-        # Rotation
-        rot = np.arctan2(c, a)
-        return cls(translation=(tx, ty), rotation=rot, scaling=(sx, sy))
+        M[:3, 3] = t
+        return M
 
-    @classmethod
-    def to_matrix(cls, tf: "Transform") -> np.ndarray:
-        tx, ty = tf._translation
-        c = np.cos(tf._rotation)
-        s = np.sin(tf._rotation)
-        sx, sy = tf._scaling
-        return np.array([
-            [c*sx, -s*sy,  tx],
-            [s*sx,  c*sy,  ty],
-            [ 0.0,   0.0, 1.0]], dtype=float)
+    @staticmethod
+    def _decompose(M):
+        """Extract TRS from 4x4 homogeneous matrix (private)."""
+        t = vector(M[:3, 3])
+        # Extract uniform scale from first column (assuming uniform scaling)
+        s = float(np.linalg.norm(M[:3, 0]))
+        # Extract rotation matrix by removing scale
+        R = M[:3, :3] / (s + 1e-12)
+        # Extract Euler angles from rotation matrix
+        pitch = np.arcsin(np.clip(-R[2, 0], -1.0, 1.0))
+        if abs(np.cos(pitch)) > 1e-6:
+            roll = np.arctan2(R[2, 1], R[2, 2])
+            yaw = np.arctan2(R[1, 0], R[0, 0])
+        else:
+            roll = 0.0
+            yaw = np.arctan2(-R[0, 1], R[1, 1])
+        return t, wrap(vector(roll, pitch, yaw)), s
 
-    # -------------------------------------------------------------------------
-    # Printing
-    # -------------------------------------------------------------------------
+    @staticmethod
+    def _ensure(obj, name="argument"):
+        """Ensure object is a Transform instance."""
+        if not isinstance(obj, Transform):
+            raise TypeError(f"{name} must be Transform, got {type(obj).__name__}")
+        return obj
 
     def __repr__(self):
-        return (
-            f"Transform(translation={self._translation}, "
-            f"rotation={self._rotation}, "
-            f"scaling={self._scaling})"
-        )
+        return f"Transform(t={self._translation}, r={self._rotation}, s={self._scaling})"
 
     def __str__(self):
-        ang_deg = np.degrees(self._rotation)
-        return (
-            f"Transform: translation={self._translation}, "
-            f"rotation={ang_deg:.2f}°, scaling={self._scaling}"
-        )
+        return f"Transform(t={self._translation}, r={self._rotation}, s={self._scaling})"

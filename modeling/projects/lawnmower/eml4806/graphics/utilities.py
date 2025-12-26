@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.image as img
 
-def evaluateRasterBounds(width: float, height: float, n: int):
+def image_bounds(width: float, height: float, n: int):
     """
      Compute the raster (pixel-grid) bounds for a world-space rectangle.
     - width, height: world-space dimensions (floats)
@@ -32,10 +32,10 @@ def evaluateRasterBounds(width: float, height: float, n: int):
 
     return (rows, cols), (width, height)
 
-def rasterize(rows: int, cols: int, value):
+def make_map(rows: int, cols: int, value):
     return np.full((rows, cols), value, dtype=np.uint8)
 
-def toGray8(image):
+def to_gray8(image):
     """Convert an RGB or grayscale image array to 8-bit monochrome."""
     if image.ndim == 3:  # RGB
         gray = ( 0.299 * image[..., 0] +
@@ -45,7 +45,7 @@ def toGray8(image):
     else:  # Already grayscale
         return image.astype(np.uint8)
         
-def loadImage(filename, convert=toGray8) -> np.ndarray:
+def load_image(filename, convert=to_gray8) -> np.ndarray:
     image = img.imread(filename)
     image = np.flipud(image)
     if convert:

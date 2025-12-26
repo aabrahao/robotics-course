@@ -24,7 +24,7 @@ from enum import Enum
 from numpy import sin, cos, pi
 from numpy.random import uniform as random
 
-from eml4806.sensor.keyboard import key as readKeyboard
+from eml4806.sensor.keyboard import key as read_heyboard
 
 from eml4806.graphics.workspace import Workspace
 
@@ -32,7 +32,7 @@ from eml4806.robot.skidsteer import Robot, Chassis, Wheel, Motor
 from eml4806.robot.tool import Blade
 from eml4806.robot.odometry import AnalyticalSkidDriveOdometer
 
-from eml4806.geometry.vector import Vector, length, angle, unit, polar
+from eml4806.geometry.vector import vector, norm, angle, unit, polar
 from eml4806.geometry.angle import radians, wrap
 
 def main():
@@ -52,49 +52,54 @@ def main():
     world = Workspace(xmin, ymin, xmin + (xmax-xmin), ymin + (ymax-ymin), menu)
 
     # Robot dock pose
-    dock_position = Vector(0.0, 0.0)
+    dock_position = vector(0.0, 0.0)
     dock_heading = radians(10.0)
 
     # Robot physics
     # ClearPath Husky A200 Ground Platform
     # https://docs.clearpathrobotics.com/docs_robots/outdoor_robots/husky/a200/user_manual_husky/
 
-    chassis = Chassis()
-    chassis.length = 0.812  # m
-    chassis.width = 0.421  # m
-    chassis.wheelbase = 0.512  # m
-    chassis.trackwidth = 0.550  # m
+    chassis = Chassis(
+        length = 0.812,
+        width = 0.421,
+        wheelbase = 0.512,
+        trackwidth = 0.550
+    )
 
-    wheels = Wheel()
-    wheels.diameter = 0.330  # m
-    wheels.width = 0.114  # m
+    wheels = Wheel(
+        diameter = 0.330,
+        width = 0.114
+    )
 
-    motors = Motor()
-    motors.maximum_angular_velocity = 5.45  # rad/s (~52 rpm maximum)
+    motors = Motor(
+        maximum_angular_velocity = 5.45
+    )
     
-    blade = Blade()
-    blade.diameter = 0.9 * chassis.width  # m
+    blade = Blade(
+        diameter = 0.9 * chassis.width
+    )
 
-    odometer = AnalyticalSkidDriveOdometer()
-    odometer.track_width = chassis.trackwidth
-    odometer.maximum_linear_velocity = None # 1.0  # m/s
-    odometer.maximum_angular_velocity = None # 3.5  # rad/s
+    odometer = AnalyticalSkidDriveOdometer(
+        track_width = chassis.trackwidth,
+        maximum_linear_velocity = None, # 1.0  # m/s
+        maximum_angular_velocity = None # 3.5  # rad/s
+    )
 
     # Simulated robot
     robot = Robot(world, dock_position, dock_heading, chassis, wheels, motors, blade, odometer)
 
     # Settings    
-    robot.setDebug(True)
+    robot.set_debug(True)
     autonomous = True
 
     # Goal pose
-    goal_position = Vector(6.0, 4.0)
+    goal_position = vector(6.0, 4.0)
     goal_heading = radians(135.0)
 
     # Graphics
     dock_point  = world.point(center=dock_position, color='magenta')
     goal_point  = world.point(center=goal_position, color='red')
-    goal_arrow  = world.arrow(origin=goal_position, direction=0.8*polar(1.0,goal_heading), color='red', width=4)
+    goal_arrow  = world.arrow(origin=goal_position, direction=0.8*polar(1.0,goal_heading), color='red')
     
     # Robot control variables
     v = 0.0  # Linear speed (m/s)
@@ -110,7 +115,7 @@ def main():
  
     while True:
     
-        key = readKeyboard()
+        key = read_heyboard()
 
         if key == 'q':
             break
@@ -121,9 +126,9 @@ def main():
         elif key == 'b':
             robot.toggleBladeState()
         elif key == 'd':
-            robot.setDebug( not robot.debug() )
+            robot.set_debug( not robot.debug() )
         elif key == 'r':
-            goal_position = Vector(random(1.1*xmin, 0.9*xmax), random(1.1*ymin, 0.9*ymax))
+            goal_position = vector(random(1.1*xmin, 0.9*xmax), random(1.1*ymin, 0.9*ymax))
             goal_heading = random(0.0, 2*pi)
             goal_point.set(center=goal_position)
             goal_arrow.set(origin=goal_position, direction=0.8*polar(1.0,goal_heading))
@@ -181,7 +186,7 @@ def main():
 
             # Target pose
             target_postion = goal_position - position
-            target_distance = length(target_postion)
+            target_distance = norm(target_postion)
 
             # Heading selection
             if target_distance > heading_switch_radious: 
@@ -190,7 +195,7 @@ def main():
                 target_heading = goal_heading # Enforce final pose heading
                         
             # Robot frame
-            dx, dy = target_postion
+            dx, dy, _ = target_postion
 
             # Error in robot frame = Rotation (heading).T @ target_postion
             ex =  cos(heading)*dx + sin(heading)*dy
@@ -204,10 +209,10 @@ def main():
                 w = 0.0
             else:
                 # Robot frame
-                error = Vector(ex, ey)
+                error = vector(ex, ey)
 
                 # Polar error coordinates
-                rho = length(error)
+                rho = norm(error)
                 alpha = angle(error)
                 beta = wrap( eh - alpha )
 

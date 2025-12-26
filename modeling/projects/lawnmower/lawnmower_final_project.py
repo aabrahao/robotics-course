@@ -20,6 +20,7 @@ team = ['Name roboticist 1',
         'Name roboticist 2', 
         'Name roboticist 3']
 
+import numpy as np
 import matplotlib.pyplot as plt
 from math import sin, cos, pi
 from numpy.random import uniform as random
@@ -28,21 +29,20 @@ from eml4806.robot.skidsteer import Robot, Chassis, Wheel, Motor
 from eml4806.robot.tool import Blade, BladeState
 from eml4806.robot.odometry import AnalyticalSkidDriveOdometer
 
-from eml4806.geometry.vector import Vector, toVector, toVectors, split, join, length, distance, angle, coincident
-from eml4806.geometry.vector import unit, perpendicular, dot, cross, is_zero, project, reject, reflect
-from eml4806.geometry.vector import clamp, lerp, midpoint, rotate, polar
-from eml4806.geometry.angle import radians, wrap
+from eml4806.geometry.vector import vector, vectors, angle
+from eml4806.geometry.angle import radians
 from eml4806.geometry.line import Line
 
 from eml4806.graphics.workspace import Workspace
 
-from eml4806.sensor.keyboard import key as readKeyboard
+from eml4806.sensor.keyboard import key as read_keyboard
 
 from eml4806.task.context import Context
 from eml4806.task.task import MoveToTask, RotateToTask, WaitTask, BladeControlTask, HaltTask
 from eml4806.task.executor import Executor
 
-from eml4806.robot.lawn import generateLawn
+from eml4806.robot.lawn import generate_convex_polygon
+from eml4806.robot.path import generate_raster_path
 
 # -------------------------------------------------------------------------
 # Utility functions
@@ -52,9 +52,9 @@ from eml4806.robot.lawn import generateLawn
 # Mission planner
 # -------------------------------------------------------------------------
 
-def planMission(lawn, context, polyline):
+def plan_mission(lawn, context, polyline):
     
-    # Enviroment variables
+    # Environment variables
     dock_position = context.dock_position
     dock_heading = context.dock_heading
     tool_diameter = context.robot.blade.diameter
@@ -68,34 +68,34 @@ def planMission(lawn, context, polyline):
     #     and produces an ordered list of scan-path waypoints.
     #   • Once implemented, you should call your function as:
     #
-    #         waypoints = makeScanGrid(lawn, tool_diameter)
+    #         waypoints = make_scan_grid(lawn, tool_diameter)
     #
     # IMPORTANT:
     #   • The placeholder below MUST be removed.
     #   • It exists only to allow the starter code to run without errors.
     #
-    # DELETE the next line and replace it with your call to makeScanGrid(...):
+    # DELETE the next line and replace it with your call to make_scan_grid(...):
     #
 
-    waypoints = lawn        # REMOVE THIS LINE
-    #waypoints = makeScanGrid(lawn, tool_diameter)   # Add your function call
+    #waypoints = lawn        # REMOVE THIS LINE
+    waypoints = generate_raster_path(lawn, tool_diameter)   # Add your function call
     
     # -------------------------------------------------------------------------
 
-    # Scanline
-    points = toVectors(waypoints)
+    # Scan grid
+    points = vectors(waypoints)
     n = len(points)
     if n < 2:
         return []
             
-    # Show raser patter
+    # Show raster pattern
     polyline.set(points)
     
     # Scheduling mowing tasks    
     tasks = []
     for i in range(n):
 
-        # Postion
+        # Position
         position = points[i]
 
         # Heading
@@ -132,60 +132,65 @@ def main():
             '[q] Quit']
 
     # World
-    xmin = -2.0
-    xmax = 10.0
-    ymin = -1.0
-    ymax = 10.0
+    x_min = -2.0
+    x_max = 10.0
+    y_min = -1.0
+    y_max = 10.0
 
-    world = Workspace(xmin, ymin, xmin + (xmax-xmin), ymin + (ymax-ymin), menu, team)
+    world = Workspace(x_min, y_min, x_min + (x_max - x_min), y_min + (y_max - y_min), menu, team)
     
-    # Robot intitial position
-    dock_position = Vector(0.0, 0.0)
+    # Robot initial position
+    dock_position = vector(0.0, 0.0)
     dock_heading = radians(10.0)
 
     # Robot model
     # ClearPath Husky A200 Ground Platform
     # https://docs.clearpathrobotics.com/docs_robots/outdoor_robots/husky/a200/user_manual_husky/
 
-    chassis = Chassis()
-    chassis.length = 0.812  # m
-    chassis.width = 0.421  # m
-    chassis.wheelbase = 0.512  # m
-    chassis.trackwidth = 0.550  # m
+    chassis = Chassis(
+        length = 0.812,
+        width = 0.421,
+        wheelbase = 0.512,
+        trackwidth = 0.550
+    )
 
-    wheels = Wheel()
-    wheels.diameter = 0.330  # m
-    wheels.width = 0.114  # m
+    wheels = Wheel(
+        diameter = 0.330,
+        width = 0.114
+    )
 
-    motors = Motor()
-    motors.maximum_angular_velocity = 5.45  # rad/s (~52 rpm maximum)
+    motors = Motor(
+        maximum_angular_velocity = 5.45
+    )
     
-    blade = Blade()
-    blade.diameter = 0.9 * chassis.width  # m
+    blade = Blade(
+        diameter = 0.9 * chassis.width
+    )
 
-    odometer = AnalyticalSkidDriveOdometer()
-    odometer.track_width = chassis.trackwidth
-    odometer.maximum_linear_velocity = None # 1.0  # m/s
-    odometer.maximum_angular_velocity = None # 3.5  # rad/s
+    odometer = AnalyticalSkidDriveOdometer(
+        track_width = chassis.trackwidth,
+        maximum_linear_velocity = None, # 1.0  # m/s
+        maximum_angular_velocity = None # 3.5  # rad/s
+    )
 
     # Robot
     robot = Robot(world, dock_position, dock_heading, chassis, wheels, motors, blade, odometer)
 
     # Simulation settings
-    robot.setDebug(True)
+    robot.set_debug(True)
     autonomous = True
     randomize = False
 
     # Controls
     v = 0.0  # Robot linear speed (m/s)
     w = 0.0  # Robot angular speed (rad/s)
-    vmax = motors.maximum_angular_velocity*(0.5*wheels.diameter)
-    wmax = radians(60.0) # rad/s
+    v_max = motors.maximum_angular_velocity*(0.5*wheels.diameter)
+    w_max = radians(60.0) # rad/s
     
     # Lawn
     n = 4
-    border = 0.2
-    lawn = generateLawn(xmin, ymin, (xmax-xmin), (ymax-ymin), border, n)
+    border = 0.2*(x_max-x_min)
+    lawn = generate_convex_polygon(n, x_min, y_min, x_max-x_min, y_max-y_min, randomness=0.1, padding=border)
     
     # Graphics
     docking_rectangle  = world.rectangle(center=dock_position, size=(chassis.length, chassis.width), angle=dock_heading, color='gray')
@@ -193,19 +198,19 @@ def main():
     lawn_polyline      = world.polyline(lawn, color='gray', width=2, marker='o', closed=True)
     scan_polyline      = world.polyline(lawn, color='seagreen', width=1, marker='o', closed=False)
 
-    # Remember mission enviromental variables
+    # Remember mission environmental variables
     context = Context()
     context.robot = robot
-    context.vmax = vmax
-    context.wmax = wmax
+    context.v_max = v_max
+    context.w_max = w_max
     context.dock_position = dock_position
     context.dock_heading = dock_heading
 
     # Plan mission
-    mission = planMission(lawn, context, scan_polyline)
+    mission = plan_mission(lawn, context, scan_polyline)
 
-    # Task exectuter
-    exercuter = Executor(context, mission)
+    # Task executor
+    executor = Executor(context, mission)
 
     # Simulation
     t = 0.0 # s
@@ -213,35 +218,35 @@ def main():
 
     while True:
         
-        # User imput
-        key = readKeyboard()
+        # User input
+        key = read_keyboard()
 
         if key == 'q': # Quit
             break
-        elif key == 'r': # Randomize worksapce
+        elif key == 'r': # Randomize workspace
             randomize = True
         elif key == 'b':
             robot.toggleBladeState()
         elif key == 'd': # Debug mode (on/off)
             if robot.debug():
                 scan_polyline.hide()
-                robot.setDebug(False)
+                robot.set_debug(False)
             else:
                 scan_polyline.show()
-                robot.setDebug(True)
+                robot.set_debug(True)
                     
         # Shuffle things around...
         if randomize:
             robot.reset()
             n = len(lawn)
-            lawn = generateLawn(xmin, ymin, (xmax-xmin), (ymax-ymin), border, n)
+            lawn = lawn = generate_convex_polygon(n, x_min, y_min, x_max-x_min, y_max-y_min, randomness=0.9, padding=border)
             lawn_polyline.set(lawn)
-            mission = planMission(lawn, context, scan_polyline)
-            exercuter.set(mission)
+            mission = plan_mission(lawn, context, scan_polyline)
+            executor.set(mission)
             randomize = False
 
         # Execute mission tasks
-        exercuter.run(dt)
+        executor.run(dt)
 
         # Simulation
         world.update()
