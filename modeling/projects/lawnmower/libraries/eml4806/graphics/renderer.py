@@ -78,28 +78,25 @@ class FillRenderer(AbstractRenderer):
 class ArrowRenderer(AbstractRenderer):
 
     def make(self, shape):
-        shape._artist = shape._ax.annotate('', xy=(0, 0), xytext=(0, 0), 
-            arrowprops=dict(
-                facecolor=None,
-                edgecolor=None,
-                #width=4,       # Thickness of the tail in points
-                #headwidth=12,  # Width of the head in points
-                #headlength=15, # Length of the head in points
-                shrink=0       # Ensures the arrow touches the exact coordinates
-            ))
+        shape._artist = shape._ax.quiver(0, 0, 0, 0,
+            angles='xy', scale_units='xy', scale=1,
+            units='dots',
+            width=3,       # Width of the shaft
+            headwidth=4,   # x the width
+            headlength=6,   # x the width
+            headaxislength=6,  # Matches length to make the back flat
+            )
 
     def update_geometry(self, shape, points):
-        x1, y1, _ = points[0]
-        x2, y2, _ = points[1]
-        shape._artist.xy = (x2, y2)
-        shape._artist.set_position((x1, y1))
+        x, y, _ = points[0]
+        u, v, _ = points[1] - points[0]
+        shape._artist.set_offsets((x, y))
+        shape._artist.set_UVC(u, v)
 
     def update_style(self, shape):
         s = shape._style
         if s.has_fill():
-            shape._artist.arrow_patch.set_facecolor(s.fill.color)
-            shape._artist.arrow_patch.set_edgecolor(s.fill.color)
+            shape._artist.set_color(s.fill.color)
         if s.has_stroke():
-            shape._artist.arrow_patch.set_edgecolor(s.stroke.color)
-            shape._artist.arrow_patch.set_linewidth(s.stroke.width)
-        shape._artist.arrow_patch.set_alpha(s.opacity)
+            shape._artist.set_edgecolor(s.stroke.color)
+        shape._artist.set_alpha(s.opacity)
