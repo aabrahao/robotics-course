@@ -36,7 +36,7 @@ from eml4806.geometry.angle import radians
 from eml4806.geometry.line import Line
 
 # Graphics
-from eml4806.graphics.workspace import Workspace
+from eml4806.graphics.scene import Workspace
 
 # User interface
 from eml4806.sensor.keyboard import key as read_keyboard

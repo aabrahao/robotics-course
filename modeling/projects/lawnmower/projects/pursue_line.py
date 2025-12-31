@@ -26,7 +26,7 @@ from numpy.random import uniform as random
 
 from eml4806.sensor.keyboard import key as read_heyboard
 
-from eml4806.graphics.workspace import Workspace
+from eml4806.graphics.scene import Workspace
 
 from eml4806.robot.skidsteer import Robot, Chassis, Wheel, Motor 
 from eml4806.robot.tool import Blade

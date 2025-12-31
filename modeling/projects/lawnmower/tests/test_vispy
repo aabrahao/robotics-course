@@ -1,0 +1,75 @@
+import time
+import numpy as np
+from vispy import app, scene
+
+# 1. Setup Canvas (Black background for stability)
+canvas = scene.SceneCanvas(keys="interactive", size=(800, 600), show=True)
+view = canvas.central_widget.add_view()
+view.camera = 'panzoom'
+view.camera.aspect = 1
+
+# 2. Define Camera Range Boundaries
+xmin, xmax = -300, 300
+ymin, ymax = -300, 300
+
+# 3. Visuals
+# GRID: Light gray lines on black background
+grid = scene.visuals.GridLines(color=(1, 1, 1, 1), parent=view.scene)
+grid.transform = scene.transforms.STTransform(scale=(50, 50))
+#grid.order = 100 
+
+# BOUNDARY RECTANGLE: Showing the camera limits in White
+range_rect = scene.visuals.Rectangle(
+    center=(0, 0), 
+    width=(xmax - xmin), 
+    height=(ymax - ymin),
+    color=(0, 0, 0, 0),        # Transparent fill
+    border_color='white',      # White boundary
+    border_width=2,
+    parent=view.scene
+)
+#range_rect.order = 50
+
+# MOVING CIRCLE: Cyan (looks great on black)
+circle = scene.visuals.Ellipse(
+    center=(0, 0), 
+    radius=25, 
+    color='red', 
+    parent=view.scene
+)
+#circle.order = 1
+
+# 4. Initialization
+running = True
+
+@canvas.events.close.connect
+def _close(event):
+    global running
+    running = False
+
+# Sync window and camera
+app.process_events() 
+view.camera.set_range(x=(xmin, xmax), y=(ymin, ymax))
+
+# -------------------------
+# Manual While Loop
+# -------------------------
+t0 = time.perf_counter()
+
+while running:
+    # 1. Logic: Smooth sine-wave movement
+    t = time.perf_counter() - t0
+    x = 220.0 * np.sin(t * 2.5)
+    y = 50.0 * np.cos(t * 5)
+    
+    # 2. Update Position
+    circle.transform = scene.transforms.STTransform(translate=(x, y))
+    
+    # 3. Refresh Graphics & Process Input
+    canvas.update()
+    app.process_events()
+    
+    # Keep CPU usage in check
+    #time.sleep(0.01)
+
+print("Process finished.")
